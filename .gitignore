@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__
+*.egg-info
+.vscode
+*.ini
+out
+
+migumi-dataset
+migumi

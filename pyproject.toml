@@ -8,7 +8,22 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "numpy>=1.26",
+    "shapely>=2.0",
+    "polyscope>=2.2",
+    "mapbox-earcut>=1.0",
+    "matplotlib>=3.8",
+    "scipy>=1.11",
+    "torch>=2.2",
+]
+
+[project.optional-dependencies]
+mesh = ["trimesh>=4.0"]
 
 [build-system]
 requires = ["setuptools>=80.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
