@@ -11,7 +11,10 @@ pip install -e .
 
 Grab the dataset:
 ```bash
+# run the command below outside of this repo under ~/
 git lfs install
+
+# run the command below inside this repo
 git clone https://huggingface.co/datasets/bardofcodes/migumi-dataset
 ```
 
