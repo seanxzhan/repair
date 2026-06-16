@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Repo root = two levels up from this file (src/repair/config.py -> repo).
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DATASET_ROOT = REPO_ROOT / "migumi-dataset" / "joints"
-OUT_DIR = REPO_ROOT / "out"
+# Paths are resolved relative to the current working directory: scripts are
+# assumed to be run from the top-level env (e.g. `python examples/...`).
+DATASET_ROOT = Path("migumi-dataset") / "joints"
+OUT_DIR = Path("out")
 
 # Rasterization grid for the CNN prior.
 RASTER_RES = 128
