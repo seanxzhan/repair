@@ -3,6 +3,6 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from . import (config)
+from . import (config, jwood, relational)
 
-__all__ = ["config"]
+__all__ = ["config", "jwood", "relational"]

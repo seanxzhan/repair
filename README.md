@@ -23,3 +23,12 @@ git clone https://huggingface.co/datasets/bardofcodes/migumi-dataset
 ```bash
 python examples/inspect_dataset.py
 ```
+
+## Inspect Reverse-Engineering
+
+Reconstruct each part from its jwood parameters and view ground-truth vs. reconstructed side by side, with the parameters used and the recovered relational model (members + interfaces + fillers):
+
+```bash
+python examples/inspect_reconstruction.py            # CJ_DT
+python examples/inspect_reconstruction.py CJ_AKT     # 3-part keyed joint
+```
