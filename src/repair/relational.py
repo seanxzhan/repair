@@ -34,8 +34,8 @@ from pathlib import Path
 import numpy as np
 import trimesh
 
-from .config import OUT_DIR, DATASET_ROOT
-from .jwood import N_ORIENT, LHF, PartSpec, lhf_contains, lhf_to_mesh
+from repair.config import OUT_DIR, DATASET_ROOT
+from repair.jwood import N_ORIENT, LHF, PartSpec, lhf_contains, lhf_to_mesh
 
 # A cut/feature whose volume falls below this (in normalized member^3 units) is
 # treated as numerical dust rather than a real interface.

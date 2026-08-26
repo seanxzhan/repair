@@ -15,7 +15,6 @@ dependencies = [
     "mapbox-earcut>=1.0",
     "matplotlib>=3.8",
     "scipy>=1.11",
-    "torch>=2.2",
 ]
 
 [project.optional-dependencies]
