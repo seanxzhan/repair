@@ -164,15 +164,15 @@ class Viewer:
     def draw_cuts(self):
         r = self.part
         if self.show_solid:
-            _show(f"{r.name} (solid)", r.solid, WOOD, transparency=0.30)
+            _show(f"{r.name} (solid)", r.solid, WOOD, transparency=0.50)
         if self.show_stock:
-            _show(f"{r.name} (stock)", r.stock_mesh, STOCK, transparency=0.12)
+            _show(f"{r.name} (stock)", r.stock_mesh, STOCK, transparency=0.50)
 
         for i, (cut, ori) in enumerate(self.cuts):
             sel = (self.cut_idx < 0 or i == self.cut_idx)
             _show(f"cut {i}: {cut.name}", lhf_to_mesh(cut, ori),
                   CUT_COLORS[i % len(CUT_COLORS)],
-                  transparency=0.85 if sel else 0.10)
+                  transparency=0.85 if sel else 0.50)
 
         if 0 <= self.cut_idx < len(self.cuts) and self.show_sketch:
             cut, ori = self.cuts[self.cut_idx]
@@ -236,10 +236,10 @@ class Viewer:
                         "JSON form, decodes it with the unmodified reader, and checks the\n"
                         "solid is unchanged and recovered at ori=0 with no STL involved.")
             return
-        _show(f"{self.part.name}", self.part.solid, WOOD, transparency=0.35)
+        _show(f"{self.part.name}", self.part.solid, WOOD, transparency=0.50)
         for i, r in enumerate(self.rows[:6]):
             _show(f"check/{r['case']}", lhf_to_mesh(r["lhf"], 0),
-                  CUT_COLORS[i % len(CUT_COLORS)], transparency=0.6)
+                  CUT_COLORS[i % len(CUT_COLORS)], transparency=0.50)
         self.msg = (
             rows_text(self.rows) + "\n\n"
             "roundtrip = symmetric-difference volume after encode/decode (0 = exact).\n"
