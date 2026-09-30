@@ -45,6 +45,25 @@ python examples/inspect_cuts.py --headless   # cut listing + verification only
 
 **CUTS** steps through a part's cuts -- selected one solid, the rest ghosted -- drawing its sketch rings at depth 0 and at `amount` (the cut is the volume between them), its plane origin, and the `(u, v, n)` frame. **ORIENT** shows all 8 in-plane orientations of the selected cut, grouped by which are the same solid, and which one the importer resolved to. **VERIFY** is a check rather than a workshop: it constructs cuts from scratch and confirms each survives a JSON round trip through the unmodified reader and comes back at `ori=0` with no STL to lean on -- which is what licenses the canonical exports below.
 
+## Inspect the Repair-Interface Model
+
+The 2D model behind `docs/proposal.md` (Figure 1): one block with a rotten end is
+the input, and a mortise-and-tenon splice -- shoulder position, tenon length,
+cheeks -- is the output. Every parameter of the interface, the damage front and
+the statics is a slider; each change rebuilds the contact set and re-solves the
+frictional-equilibrium LP, showing live/dead contacts, the LP's contact forces,
+the moment the interface can transfer and the sound wood it throws away.
+`compute landscape` sweeps (shoulder x tenon length) and draws capacity, the
+objective or removed wood below the block, with the active-set cliffs overlaid.
+
+```bash
+python examples/inspect_splice.py              # open the viewer
+python examples/inspect_splice.py --headless   # readouts only
+```
+
+The model itself is `src/repair/splice2d.py`; `docs/figures/proposal.py` renders
+it once at the viewer's default settings.
+
 ## Export / Inspect Our Own Parametrization
 
 The dataset's `vis_files/*_jwood.json` cannot be evaluated on their own: they store a 2D sketch and a plane but not the sketch's in-plane orientation, so a reader must recover it by searching against the ground-truth STL. Export a canonical form once (every LHF at orientation 0) and that dependency is gone:
