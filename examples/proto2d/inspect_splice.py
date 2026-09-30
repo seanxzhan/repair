@@ -8,8 +8,8 @@ the frictional-equilibrium LP re-solved, and you see which contacts are live
 (green), which are dead against rot (red), the forces the LP puts on them, the
 moment the interface can transfer, and the sound wood it throws away.
 
-    python examples/inspect_splice.py              # open the viewer
-    python examples/inspect_splice.py --headless   # print the readouts, no window
+    python examples/proto2d/inspect_splice.py              # open the viewer
+    python examples/proto2d/inspect_splice.py --headless   # print the readouts, no window
 
 "compute landscape" sweeps (a, ell) with everything else held at the current
 sliders and draws the result below the block: capacity, the objective, or the
@@ -18,7 +18,7 @@ markers -- where you are, and the landscape's optimum. "go to landscape
 optimum" moves the (a, ell) sliders onto that orange marker. Moving a damage
 or statics slider afterwards marks it stale until you recompute.
 
-The model is `repair.splice2d`; docs/figures/proposal.py is the same model
+The model is `repair.proto2d.model`; docs/figures/proposal.py is the same model
 rendered once, at the defaults this viewer starts from.
 """
 from __future__ import annotations
@@ -30,10 +30,10 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from repair import splice2d as sp
+    from repair.proto2d import model as sp
 except ImportError:                       # not installed: fall back to the source tree
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-    from repair import splice2d as sp
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from repair.proto2d import model as sp
 
 # Colours as (r, g, b) in [0, 1], matching docs/figures/_style.py.
 GOOD = (0.05, 0.64, 0.05)

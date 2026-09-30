@@ -185,7 +185,7 @@ One commitment this forces: [song2022 Figure 2](song2022-computational-assemblie
 - **Action space.** Fixed-size, frame-normalized, template-free joint parametrization with measured fidelity ([`interface.py`](../src/repair/interface.py)).
 - **Test beds.** 30 joints, 26 of them 2-part, in four variants (`base` / `mill` / `odf` / `ours`) — enough to ask whether milling adaptation changes stability, not only fit.
 
-- **A toy of the full loop.** [`splice2d.py`](../src/repair/splice2d.py) is the 2D model behind Figure 1 — damage field, interface family, contact set, frictional-equilibrium LP, sound-wood integral — and [`examples/inspect_splice.py`](../examples/inspect_splice.py) puts every one of its parameters on a polyscope slider, with the (a, ℓ) landscape and its cliffs drawn live.
+- **A toy of the full loop.** [`proto2d/model.py`](../src/repair/proto2d/model.py) is the 2D model behind Figure 1 — damage field, interface family, contact set, frictional-equilibrium LP, sound-wood integral — and [`examples/proto2d/inspect_splice.py`](../examples/proto2d/inspect_splice.py) puts every one of its parameters on a polyscope slider, with the (a, ℓ) landscape and its cliffs drawn live.
 
 What is missing: damage fields on real geometry, obstacle contexts, a 3D static solver in the loop, and any structural model.
 

@@ -5,7 +5,7 @@ The output is an *interface*: the mating surface along which the rotten part is
 cut away and new wood is fitted. Nothing about the interface is given up front;
 its shape is the design variable.
 
-The model lives in `repair.splice2d` (shared with `examples/inspect_splice.py`,
+The model lives in `repair.proto2d.model` (shared with `examples/proto2d/inspect_splice.py`,
 the interactive version of this figure). We use one interface family, a
 mortise-and-tenon splice, over a 2D parameter slice: `a` = where the shoulder
 sits, `ell` = how deep the tenon reaches. At each point the contact set is
@@ -32,10 +32,10 @@ from matplotlib.patches import FancyArrowPatch, Polygon as MplPolygon
 from scipy.ndimage import gaussian_filter1d
 
 try:
-    from repair import splice2d as sp
+    from repair.proto2d import model as sp
 except ImportError:                       # not installed: fall back to the source tree
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-    from repair import splice2d as sp
+    from repair.proto2d import model as sp
 
 SLUG = "proposal"
 

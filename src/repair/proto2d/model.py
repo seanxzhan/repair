@@ -1,6 +1,6 @@
 """A 2D model of one repair interface on a partly rotten block.
 
-This is the model behind docs/figures/proposal.py and examples/inspect_splice.py.
+This is the model behind docs/figures/proposal.py and examples/proto2d/inspect_splice.py.
 It is deliberately small: a cross-section, one interface family (a
 mortise-and-tenon splice), a graded damage field, and a rigid-body frictional
 equilibrium LP that returns the largest bending moment the interface can
@@ -104,13 +104,18 @@ def contact_set(s: Splice, d: Damage, b: Block = Block()) -> list[Contact]:
     return out
 
 
-def solve_moment(contacts: list[Contact], st: Statics = Statics()):
+def solve_moment(contacts: list[Contact], st: Statics = Statics(), budgets=None):
     """Largest hogging moment the live contacts can transfer, and the forces that do it.
 
     Free body: the new wood, loaded by a pure couple M (no net force, so no
     lever arm). Unknowns are f_n >= 0 and f_t per live sample (the 2D friction
     cone is exactly two half-planes) plus M. Maximise M subject to force and
     moment balance, |f_t| <= mu f_n, and sum(f_n) <= cap.
+
+    `budgets` optionally splits the cap: a list of (contact indices, cap) pairs,
+    each bounding sum(f_n) over its own contacts. families.py uses this to give a
+    layer that spans a fraction w of the beam's width a budget of w * cap.
+    Without it there is one budget, st.cap, over every contact.
 
     Returns (M, forces) where forces is an (n_contacts, 2) array of the contact
     force vectors, zero on dead samples.
@@ -124,6 +129,9 @@ def solve_moment(contacts: list[Contact], st: Statics = Statics()):
     if not idx:
         return 0.0, forces
     m = len(idx)
+    col = {i: k for k, i in enumerate(idx)}         # contact index -> LP slot
+    if budgets is None:
+        budgets = [(idx, st.cap)]
     nz = 2 * m + 1                            # [f_n, f_t] per contact, then M
     A_eq = np.zeros((3, nz))
     tans = []
@@ -141,7 +149,12 @@ def solve_moment(contacts: list[Contact], st: Statics = Statics()):
     for k in range(m):
         r = np.zeros(nz); r[2 * k] = -st.mu; r[2 * k + 1] = +1.0; A_ub.append(r); b_ub.append(0.0)
         r = np.zeros(nz); r[2 * k] = -st.mu; r[2 * k + 1] = -1.0; A_ub.append(r); b_ub.append(0.0)
-    r = np.zeros(nz); r[0:2 * m:2] = 1.0; A_ub.append(r); b_ub.append(st.cap)
+    for members, cap in budgets:
+        r = np.zeros(nz)
+        for i in members:
+            if i in col:
+                r[2 * col[i]] = 1.0
+        A_ub.append(r); b_ub.append(cap)
 
     c = np.zeros(nz); c[-1] = -1.0            # maximise M
     bounds = [(0, None), (None, None)] * m + [(0, None)]

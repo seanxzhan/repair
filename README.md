@@ -57,12 +57,37 @@ the moment the interface can transfer and the sound wood it throws away.
 objective or removed wood below the block, with the active-set cliffs overlaid.
 
 ```bash
-python examples/inspect_splice.py              # open the viewer
-python examples/inspect_splice.py --headless   # readouts only
+python examples/proto2d/inspect_splice.py              # open the viewer
+python examples/proto2d/inspect_splice.py --headless   # readouts only
 ```
 
-The model itself is `src/repair/splice2d.py`; `docs/figures/proposal.py` renders
+The model itself is `src/repair/proto2d/model.py`; `docs/figures/proposal.py` renders
 it once at the viewer's default settings.
+
+## Inspect the 2D Interface Families
+
+`src/repair/proto2d/families.py` makes the interface family the variable: a family
+turns its parameters into the region of the block the new wood replaces (as a
+polygon, per width layer), the contact faces are read off that polygon's edges,
+and the same LP, damage field and sound-wood integral apply. Seven families: a
+plain cut, the mortise-and-tenon of Figure 1, 2D cross-sections of two MiGumi
+splices -- `CJ_AT` (dovetail) and `CJ_DT` (hooked scarf) -- and, as families of
+their own, the flipped orientation of each of those three: the same joint cut
+the other way round, so the tongue belongs to the retained wood or the scarf's
+retained wedge sits above. In sound wood a flip carries exactly its original's
+moment; under a leaning damage front the two differ. The tenon family reproduces
+`model.py` to machine precision; `sanity_checks()` says how the families nest
+and that every flip is a true mirror.
+
+```bash
+python examples/proto2d/inspect_families.py              # viewer: pick a family, every parameter a slider
+python examples/proto2d/inspect_families.py --headless   # every family at its defaults, as text
+```
+
+**compute landscape** sweeps any
+two of the family's parameters and draws capacity, the objective or the sound
+wood removed with the active-set cliffs overlaid; **go to landscape optimum**
+moves the two swept sliders onto the orange marker.
 
 ## Export / Inspect Our Own Parametrization
 
