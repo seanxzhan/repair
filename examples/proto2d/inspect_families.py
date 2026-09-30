@@ -3,12 +3,14 @@
 Pick a family (plain cut, mortise-and-tenon, the CJ_AT dovetail and the CJ_DT
 hooked scarf, the last three each in both orientations: `*_flip` is the same
 joint cut the other way round); every parameter of the family is a slider, as
-are the damage front and the statics. The block is drawn with its retained wood
+are the damage and the statics. Damage is either the parametric front of
+Figure 1 or a random field from repair.proto2d.damage: pick the seed, turn the
+generator's knobs, or draw random knobs. The block is drawn with its retained wood
 coloured by damage severity, its new wood plain, and its contact samples live
 (green) or dead (red) with the LP's forces on them.
 
     python examples/proto2d/inspect_families.py                # open the viewer
-    python examples/proto2d/inspect_families.py --headless     # every family at its defaults, as text
+    python examples/proto2d/inspect_families.py --headless     # every family at its defaults, and a few random fields, as text
 
 "compute landscape" sweeps any two of the family's parameters with the rest
 held at the sliders, and draws capacity, the objective or the sound wood
@@ -24,15 +26,20 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from repair.proto2d import families as fm, model as sp
+    from repair.proto2d import damage as dm, families as fm, model as sp
 except ImportError:                       # not installed: fall back to the source tree
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-    from repair.proto2d import families as fm, model as sp
+    from repair.proto2d import damage as dm, families as fm, model as sp
 
 from inspect_splice import (AQUA, BAD, FRAME, GOOD, INK, INK2, NEW_WOOD, ORANGE,
                             RENDER_NX, RENDER_NY, LAND_MODES, _quad_grid)
 
 KEYS = list(fm.FAMILIES)
+DAMAGE_MODES = ["parametric front (Figure 1)", "random field"]
+KNOB_FLOATS = [("reach", 0.1, 6.0, "how far the rot runs from the end face"),
+               ("end_frac", 0.05, 1.0, "fraction of the end face seeded"),
+               ("aniso", 0.05, 1.0, "across-grain reach as a fraction"),
+               ("patch", 0.0, 1.5, "surface pocket size as a fraction of reach; 0 = none")]
 STRIP_GAP = 0.6                            # vertical space between layer strips
 LAND_ORIGIN_Y = -3.6                       # the landscape sits below the last strip
 LAND_SIZE = (8.0, 2.4)
@@ -41,8 +48,11 @@ LAND_SIZE = (8.0, 2.4)
 class Viewer:
     def __init__(self, headless=False):
         self.headless = headless
-        self.block, self.damage, self.statics = sp.Block(), sp.Damage(), sp.Statics()
+        self.block, self.front, self.statics = sp.Block(), sp.Damage(), sp.Statics()
         self.grid = sp.Grid(self.block)
+        self.dmode = 0
+        self.field_seed, self.knobs = 0, dm.Knobs()
+        self.field = dm.random_field(self.field_seed, self.knobs, self.block)
         self.fam_idx = KEYS.index("tenon")
         self.params = {k: fm.FAMILIES[k].defaults() for k in KEYS}
         self.n_samp = 7
@@ -65,10 +75,20 @@ class Viewer:
     def p(self) -> dict:
         return self.params[self.fam.key]
 
+    @property
+    def damage(self):
+        return self.front if self.dmode == 0 else self.field
+
+    def damage_token(self):
+        return self.front if self.dmode == 0 else self.field.token
+
+    def regenerate_field(self):
+        self.field = dm.random_field(self.field_seed, self.knobs, self.block)
+
     def signature(self):
         """What the landscape depends on besides the two swept parameters."""
         fixed = tuple(v for k, v in self.p.items() if k not in self.swept_names())
-        return (self.fam.key, tuple(self.sweep), self.damage, self.statics, self.n_samp, self.land_res, fixed)
+        return (self.fam.key, tuple(self.sweep), self.damage_token(), self.statics, self.n_samp, self.land_res, fixed)
 
     def swept_names(self):
         return [self.fam.params[i].name for i in self.sweep]
@@ -134,16 +154,23 @@ class Viewer:
             if removed.any():
                 new = ps.register_surface_mesh(f"L{li} new wood", V, Fq[removed], smooth_shade=False)
                 new.set_color(NEW_WOOD); new.set_edge_width(0.0)
-            ys = np.linspace(0, b.height, 40)
-            front = np.column_stack([d.front_x(ys, b), ys + y0, np.full(ys.size, 0.01)])
-            ps.register_curve_network(f"L{li} decay front", front, "line", radius=0.006).set_color(INK2)
+            if self.dmode == 0:
+                ys = np.linspace(0, b.height, 40)
+                front = np.column_stack([d.front_x(ys, b), ys + y0, np.full(ys.size, 0.01)])
+                ps.register_curve_network(f"L{li} decay front", front, "line", radius=0.003).set_color(INK2)
+            else:
+                fp = d.front_points()
+                if len(fp):
+                    fp = np.column_stack([fp[:, 0], fp[:, 1] + y0, np.full(len(fp), 0.015)])
+                    ps.register_point_cloud(f"L{li} crit contour", fp).set_radius(0.012, relative=False)
+                    ps.get_point_cloud(f"L{li} crit contour").set_color(INK2)
             outline = np.array([[0, y0, 0.01], [b.length, y0, 0.01], [b.length, y0 + b.height, 0.01], [0, y0 + b.height, 0.01]])
-            ps.register_curve_network(f"L{li} block outline", outline, "loop", radius=0.008).set_color(INK)
+            ps.register_curve_network(f"L{li} block outline", outline, "loop", radius=0.004).set_color(INK)
             segs = fm.interface_segments(lay, b)
             if segs:
                 P = np.array([[s[0][0], s[0][1] + y0, 0.012] for s in segs] + [[s[1][0], s[1][1] + y0, 0.012] for s in segs])
                 E = np.array([[k, k + len(segs)] for k in range(len(segs))])
-                ps.register_curve_network(f"L{li} interface", P, E, radius=0.010).set_color(INK)
+                ps.register_curve_network(f"L{li} interface", P, E, radius=0.005).set_color(INK)
         if cs:
             P = np.array([[c.point[0], c.point[1] + self.strip_y0(c.layer), 0.02] for c in cs])
             col = np.array([GOOD if c.live else BAD for c in cs])
@@ -195,7 +222,7 @@ class Viewer:
             cm = ps.register_surface_mesh("landscape cliffs", Vc, Fq[fc], smooth_shade=True)
             cm.set_color(INK); cm.set_transparency(0.55); cm.set_edge_width(0.0)
         base = np.array([[x0, y0, 0.0], [x1, y0, 0.0], [x1, y1, 0.0], [x0, y1, 0.0]])
-        ps.register_curve_network("landscape frame", base, "loop", radius=0.008).set_color(FRAME)
+        ps.register_curve_network("landscape frame", base, "loop", radius=0.004).set_color(FRAME)
         ni, nj = self.swept_names()
         here = self.to_scene(self.p[ni], self.p[nj], H)
         pc = ps.register_point_cloud("you are here", np.array([[here[0], here[1], here[2] + 0.04]]))
@@ -208,8 +235,13 @@ class Viewer:
     # -------------------------------------------------------------- readout
     def readout(self, M, R, cs):
         d, st = self.damage, self.statics
-        lines = [fm.summary(self.fam, self.p, d, st, self.grid, self.n_samp),
-                 f"damage     front x0 = {d.x0:.2f}  slope = {d.slope:.2f}  width = {d.width:.2f}  crit = {d.crit:.2f}",
+        if self.dmode == 0:
+            dline = f"damage     front x0 = {d.x0:.2f}  slope = {d.slope:.2f}  width = {d.width:.2f}  crit = {d.crit:.2f}"
+        else:
+            k = self.knobs
+            dline = (f"damage     random field, seed {self.field_seed}: reach {k.reach:.2f}  end_frac {k.end_frac:.2f}  "
+                     f"aniso {k.aniso:.2f}  patch {k.patch:.2f}  (width {dm.WIDTH}, noise {dm.NOISE} @ {dm.NOISE_LEN}, crit {dm.CRIT})")
+        lines = [fm.summary(self.fam, self.p, d, st, self.grid, self.n_samp), dline,
                  f"statics    mu = {st.mu:.2f}  cap sum(f_n) <= {st.cap:.0f}  ({self.n_samp} samples/face)"]
         if self.land is not None:
             i, j, gi, gj, Ml, Rl, sig = self.land
@@ -254,12 +286,31 @@ class Viewer:
             ch, self.n_samp = psim.SliderInt("samples per face", self.n_samp, 3, 15); changed_any |= ch
 
         if psim.CollapsingHeader("damage (the input)", True):
-            d, b = self.damage, self.block
-            ch, x0 = psim.SliderFloat("front x0 (at y = 0)", d.x0, 5.0, b.length); changed_any |= ch
-            ch, slope = psim.SliderFloat("front slope (x shift over height)", d.slope, -2.0, 3.0); changed_any |= ch
-            ch, width = psim.SliderFloat("front width", d.width, 0.02, 1.5); changed_any |= ch
-            ch, crit = psim.SliderFloat("dead above severity", d.crit, 0.05, 0.95); changed_any |= ch
-            self.damage = sp.Damage(x0=x0, slope=slope, width=width, crit=crit)
+            ch, self.dmode = psim.Combo("damage model", self.dmode, DAMAGE_MODES); changed_any |= ch
+            if self.dmode == 0:
+                d, b = self.front, self.block
+                ch, x0 = psim.SliderFloat("front x0 (at y = 0)", d.x0, 5.0, b.length); changed_any |= ch
+                ch, slope = psim.SliderFloat("front slope (x shift over height)", d.slope, -2.0, 3.0); changed_any |= ch
+                ch, width = psim.SliderFloat("front width", d.width, 0.02, 1.5); changed_any |= ch
+                ch, crit = psim.SliderFloat("dead above severity", d.crit, 0.05, 0.95); changed_any |= ch
+                self.front = sp.Damage(x0=x0, slope=slope, width=width, crit=crit)
+            else:
+                regen = False
+                ch, self.field_seed = psim.SliderInt("seed (placements)", self.field_seed, 0, 9999); regen |= ch
+                psim.SameLine()
+                if psim.Button("next seed"):
+                    self.field_seed += 1; regen = True
+                if psim.Button("random knobs (from the data ranges)"):
+                    self.knobs = dm.sample_knobs(np.random.default_rng(self.field_seed)); regen = True
+                psim.SameLine()
+                if psim.Button("default knobs"):
+                    self.knobs = dm.Knobs(); regen = True
+                kw = {}
+                for name, lo, hi, doc in KNOB_FLOATS:
+                    ch, kw[name] = psim.SliderFloat(f"{name}: {doc}", getattr(self.knobs, name), lo, hi); regen |= ch
+                if regen:
+                    self.knobs = dm.Knobs(**kw)
+                    self.regenerate_field(); changed_any = True
 
         if psim.CollapsingHeader("statics", True):
             st = self.statics
@@ -300,8 +351,13 @@ class Viewer:
 
 def main():
     if "--headless" in sys.argv[1:]:
-        print("sanity checks:", fm.sanity_checks())
+        print("sanity checks: families", fm.sanity_checks(), " damage", dm.sanity_checks())
         v = Viewer(headless=True)
+        rng = np.random.default_rng(0)
+        for seed in range(3):
+            f = dm.random_field(seed, dm.sample_knobs(rng), v.block)
+            print(f"\nrandom field, seed {seed}: {f.token[1]}")
+            print(dm.ascii_field(f))
         for k in KEYS:
             v.fam_idx = KEYS.index(k); v.refresh()
             M, R, cs, _ = v.evaluate()

@@ -9,6 +9,11 @@ source activate.sh
 pip install -e .
 ```
 
+Install CUDA if testing out `proto2d`:
+```
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118
+```
+
 Grab the dataset:
 ```bash
 # run the command below outside of this repo under ~/
@@ -84,7 +89,10 @@ python examples/proto2d/inspect_families.py              # viewer: pick a family
 python examples/proto2d/inspect_families.py --headless   # every family at its defaults, as text
 ```
 
-**compute landscape** sweeps any
+Damage is either the parametric front of Figure 1 or a random severity field
+from `src/repair/proto2d/damage.py` (erosion from seeds on the boundary: a
+logistic of the anisotropic distance, with the front displaced by smooth noise;
+every knob a slider, or drawn at random from the data-generation ranges). **compute landscape** sweeps any
 two of the family's parameters and draws capacity, the objective or the sound
 wood removed with the active-set cliffs overlaid; **go to landscape optimum**
 moves the two swept sliders onto the orange marker.

@@ -128,16 +128,16 @@ class Viewer:
 
         ys = np.linspace(0, b.height, 40)
         front = np.column_stack([d.front_x(ys, b), ys, np.full(ys.size, 0.01)])
-        ps.register_curve_network("decay front", front, "line", radius=0.006).set_color(INK2)
+        ps.register_curve_network("decay front", front, "line", radius=0.003).set_color(INK2)
 
         outline = np.array([[0, 0, 0.01], [b.length, 0, 0.01], [b.length, b.height, 0.01], [0, b.height, 0.01]])
-        ps.register_curve_network("block outline", outline, "loop", radius=0.008).set_color(INK)
+        ps.register_curve_network("block outline", outline, "loop", radius=0.004).set_color(INK)
 
         # the interface itself, as a polyline
         xb = s.a - s.ell
         iface = np.array([[s.a, 0], [s.a, s.y1], [xb, s.y1], [xb, s.y2], [s.a, s.y2], [s.a, b.height]])
         iface = np.column_stack([iface, np.full(len(iface), 0.012)])
-        ps.register_curve_network("interface", iface, "line", radius=0.010).set_color(INK)
+        ps.register_curve_network("interface", iface, "line", radius=0.005).set_color(INK)
 
     def draw_contacts(self, cs, forces):
         import polyscope as ps
@@ -217,11 +217,11 @@ class Viewer:
 
         # base frame, plus a drop line at each corner if there is relief
         base = np.array([[x0, y0, 0.0], [x1, y0, 0.0], [x1, y1, 0.0], [x0, y1, 0.0]])
-        ps.register_curve_network("landscape frame", base, "loop", radius=0.008).set_color(FRAME)
+        ps.register_curve_network("landscape frame", base, "loop", radius=0.004).set_color(FRAME)
         if self.land_height > 0:
             top = base.copy(); top[:, 2] = self.land_height
             posts = np.vstack([base, top]); edges = np.array([[k, k + 4] for k in range(4)])
-            ps.register_curve_network("landscape posts", posts, edges, radius=0.005).set_color(FRAME)
+            ps.register_curve_network("landscape posts", posts, edges, radius=0.0025).set_color(FRAME)
 
         here = self.to_scene(self.splice.a, self.splice.ell, H)
         pc = ps.register_point_cloud("you are here", np.array([[here[0], here[1], here[2] + 0.04]]))
