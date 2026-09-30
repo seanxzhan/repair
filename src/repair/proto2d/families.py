@@ -12,7 +12,7 @@ The families, and the MiGumi joint each is a cross-section of:
     tenon          mortise and tenon, the Figure 1 family of docs/proposal.md
     dovetail       CJ_AT  Ari Tsugi       tenon whose cheeks flare toward the tip
     hooked_scarf   CJ_DT  Daimochi Tsugi  long shallow scarf with a 45-degree hook
-                                          step and short shoulders at both ends
+                                          step mid-chord and equal shoulders at both ends
 
 Orientation is a separate family. `*_flip` reflects the interface left-to-right
 and swaps which side is retained: the same joint, cut the other way round. For
@@ -251,17 +251,16 @@ def _dovetail(p, b):
 
 def _clip_scarf(p, b):
     p["L"] = min(p["L"], b.length - p["a"])
-    p["d1"] = min(p["d1"], b.height - 0.05)
-    p["d2"] = min(p["d2"], b.height - 0.05)
+    p["d"] = min(p["d"], 0.5 * b.height - 0.05)
     # the hook riser must stay below the top and the chord must keep descending
-    p["s"] = max(0.0, min(p["s"], 0.45 * (b.height - p["d1"] - p["d2"]), 0.45 * p["L"]))
+    p["s"] = max(0.0, min(p["s"], 0.45 * (b.height - 2 * p["d"]), 0.45 * p["L"]))
     return p
 
 
 def _hooked_scarf(p, b):
     a, L, H = p["a"], p["L"], b.height
-    top, bot = np.array([a, H - p["d1"]]), np.array([a + L, p["d2"]])
-    h0 = top + p["t"] * (bot - top)                   # the hook sits on the chord
+    top, bot = np.array([a, H - p["d"]]), np.array([a + L, p["d"]])
+    h0 = 0.5 * (top + bot)                            # the hook sits mid-chord
     h1 = h0 + np.array([p["s"], p["s"]])              # a 45-degree riser, as in CJ_DT
     ring = [(a, H), tuple(top), tuple(h0), tuple(h1), tuple(bot), (a + L, 0.0),
             (_far(b), 0.0), (_far(b), H)]
@@ -287,10 +286,8 @@ _DOVETAIL = (
 _SCARF = (
     P("a", 6.0, 11.0, 8.0, "start of the scarf"),
     P("L", 0.5, 5.0, 2.0, "run of the scarf"),
-    P("d1", 0.0, 1.5, 0.3, "shoulder depth at the start"),
-    P("d2", 0.0, 1.5, 0.3, "shoulder height at the end"),
-    P("s", 0.0, 0.5, 0.25, "hook riser"),
-    P("t", 0.1, 0.9, 0.4, "hook position along the chord"))
+    P("d", 0.0, 0.9, 0.3, "shoulder depth at both ends"),
+    P("s", 0.0, 0.5, 0.25, "hook riser, mid-chord"))
 
 
 def _with_defaults(params, **kw):
@@ -308,7 +305,7 @@ FAMILIES: dict[str, Family] = {f.key: f for f in [
            _with_defaults(_DOVETAIL, a=8.4, ell=0.8), _flipped(_dovetail, lambda p: p["a"]), _clip_dovetail_flip),
     Family("hooked_scarf", "hooked scarf, retained wedge below", "CJ_DT", _SCARF, _hooked_scarf, _clip_scarf),
     Family("hooked_scarf_flip", "hooked scarf, retained wedge above", "CJ_DT",
-           _with_defaults(_SCARF, L=1.5, s=0.15, t=0.6), _flipped(_hooked_scarf, lambda p: p["a"] + p["L"] / 2), _clip_scarf),
+           _with_defaults(_SCARF, L=1.5, s=0.15), _flipped(_hooked_scarf, lambda p: p["a"] + p["L"] / 2), _clip_scarf),
 ]}
 FLIP_OF = {"tenon": "tenon_flip", "dovetail": "dovetail_flip", "hooked_scarf": "hooked_scarf_flip"}
 

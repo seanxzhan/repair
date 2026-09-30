@@ -37,7 +37,7 @@ Define the families over one rectangular block, each as a small parameter vector
 | plain cut | | a vertical cut; carries no moment | 1 |
 | mortise and tenon | | Figure 1 of the proposal | 4 |
 | dovetail | CJ_AT, Ari Tsugi | a tenon whose cheeks flare toward the tip | 5 |
-| hooked scarf | CJ_DT, Daimochi Tsugi | long shallow scarf with a 45° hook step and short end shoulders | 6 |
+| hooked scarf | CJ_DT, Daimochi Tsugi | long shallow scarf with a 45° hook step mid-chord and equal end shoulders | 4 |
 | tenon, dovetail and hooked scarf, flipped | | the same joint cut the other way round: the tongue on the retained wood, or the scarf's retained wedge above instead of below | as above |
 
 Orientation is treated as a separate family rather than a parameter. A flip is a reflection of the interface plus a swap of which side is retained, so in sound wood it carries exactly its original's moment, and only the damage field distinguishes the two. That makes the flips a clean test of whether the pipeline actually uses the damage input: a selector that never prefers a flip under a leaning front has not learned the damage.
