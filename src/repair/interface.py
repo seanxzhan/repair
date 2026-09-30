@@ -1,4 +1,4 @@
-"""A fixed-size, template-free parametrization of a two-part joint.
+"""A fixed-size, shared-layout parametrization of a two-part joint.
 
 The premise, measured in this repo before it was written down:
 
@@ -21,9 +21,29 @@ joint, so that one parameter vector means the same thing for every joint:
 
     Program = K slots x (active, normal, plane offset, depth, R rings x n_ctrl pts)
 
-Nothing here is anchored to a template -- there is no "the original joint" and no
-offsets-from-it. The 25 dataset joints are 25 points in the space, not 25
-origins. What that costs in fidelity is what `examples/fit_interface.py`
+What "shared layout" means, and what it does not (earlier notes call this
+"template-free", which is easy to misread as "joint types are gone"):
+
+  * **Every joint still has its own cuts.** A dovetail and a lap are different
+    LHF stacks in the dataset and different vectors here. The joint *type* is
+    implicit in the values -- which slots are used, where their planes sit, what
+    the rings look like. There is no type label and no per-type parameter list.
+  * **Only the layout is shared.** Every part is padded to K slots and every
+    ring resampled to n_ctrl points, so all joints give a vector of the same
+    length whose positions mean the same thing. That makes this a common input
+    format -- one surrogate can read any joint -- and nothing more.
+  * **No named knobs.** Depth is explicit per slot, but a "width" or a "flare
+    angle" is buried in ring control-point coordinates. A *template* is exactly
+    what would supply those: hand-named parameters for one joint type, or
+    offsets from one dataset joint. This module has neither -- each joint is
+    stored absolutely, so the 25 dataset joints are 25 points in the space, not
+    25 origins. Per-type parameters would be defined on top of this, per type.
+  * **Not a design space to search freely.** Nothing here makes an arbitrary
+    vector a valid joint. The fitted joints are known-good points; what lies
+    between them is unmeasured, so picking a joint type remains a discrete
+    choice made outside this module.
+
+What the fixed size costs in fidelity is what `examples/fit_interface.py`
 measures, by fitting every joint and sweeping K, R and n_ctrl.
 
 Canonical frame: taken from A's stock LHF -- its plane frame gives the axes, its
