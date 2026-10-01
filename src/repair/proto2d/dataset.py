@@ -51,9 +51,16 @@ def make_field(index: int, master_seed: int, b: Block = Block()):
     return seed, knobs, dm.random_field(seed, knobs, b)
 
 
-def sample_params(fam: fm.Family, rng: np.random.Generator, b: Block) -> dict:
-    p = {q.name: float(rng.uniform(q.lo, q.hi)) for q in fam.params}
-    return fam.feasible(p, b)
+def sample_params(fam: fm.Family, rng: np.random.Generator, b: Block, tries: int = 20) -> dict:
+    """Uniform within the bounds, resampled until feasible so the rows are
+    uniform over the feasible set rather than piled on its boundary; clipped
+    only if `tries` draws all fail."""
+    for _ in range(tries):
+        p = {q.name: float(rng.uniform(q.lo, q.hi)) for q in fam.params}
+        q = fam.feasible(p, b)
+        if all(abs(q[k] - p[k]) < 1e-9 for k in p):
+            return q
+    return q
 
 
 def evaluate_field(args):

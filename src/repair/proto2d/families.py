@@ -10,7 +10,8 @@ The families, and the MiGumi joint each is a cross-section of:
 
     butt           a plain cut (the baseline; carries no moment)
     tenon          mortise and tenon, the Figure 1 family of docs/proposal.md
-    dovetail       CJ_AT  Ari Tsugi       tenon whose cheeks flare toward the tip
+    dovetail       CJ_AT  Ari Tsugi       tenon whose cheeks flare toward the tip at a
+                                          dovetail angle of 6 to 15 degrees
     hooked_scarf   CJ_DT  Daimochi Tsugi  long shallow scarf with a 45-degree hook
                                           step mid-chord and equal shoulders at both ends
 
@@ -221,11 +222,17 @@ def _clip_tenon_flip(p, b):
     return p
 
 
+def _tip(p):
+    """Tip thickness of a dovetail: neck plus the flare its angle gives over its length."""
+    return p["t"] + 2.0 * p["ell"] * np.tan(np.radians(p["angle"]))
+
+
 def _clip_dovetail(p, b):
     p["ell"] = min(p["ell"], p["a"] - 0.2)
     half = min(p["yc"], b.height - p["yc"]) - 0.01
     p["t"] = min(p["t"], 2 * half)
-    p["flare"] = min(p["flare"], 2 * half - p["t"])
+    # the tip must stay inside the block: shorten the tenon, keep the angle
+    p["ell"] = max(0.0, min(p["ell"], (2 * half - p["t"]) / (2.0 * np.tan(np.radians(p["angle"])))))
     return p
 
 
@@ -233,7 +240,7 @@ def _clip_dovetail_flip(p, b):
     p["ell"] = min(p["ell"], b.length - p["a"] - 0.05)
     half = min(p["yc"], b.height - p["yc"]) - 0.01
     p["t"] = min(p["t"], 2 * half)
-    p["flare"] = min(p["flare"], 2 * half - p["t"])
+    p["ell"] = max(0.0, min(p["ell"], (2 * half - p["t"]) / (2.0 * np.tan(np.radians(p["angle"])))))
     return p
 
 
@@ -245,7 +252,7 @@ def _trapezoid(a, ell, yc, t_neck, t_tip):
 
 def _dovetail(p, b):
     a, ell = p["a"], p["ell"]
-    tongue = _trapezoid(a, ell, p["yc"], p["t"], p["t"] + p["flare"]) if ell > TOL else Polygon()
+    tongue = _trapezoid(a, ell, p["yc"], p["t"], _tip(p)) if ell > TOL else Polygon()
     return [Layer(1.0, unary_union([_end(a, b), tongue]), "full width")]
 
 
@@ -282,7 +289,7 @@ _DOVETAIL = (
     P("ell", 0.0, 4.0, 1.2, "tenon length"),
     P("yc", 0.1, 1.9, 1.0, "tenon centre"),
     P("t", 0.05, 1.9, 0.67, "thickness at the neck"),
-    P("flare", 0.0, 1.5, 0.53, "extra thickness at the tip"))
+    P("angle", 6.0, 15.0, 12.0, "dovetail angle in degrees (1:8 is 7, 1:6 is 9.5); never zero, so no dovetail is a tenon"))
 _SCARF = (
     P("a", 6.0, 11.0, 8.0, "start of the scarf"),
     P("L", 0.5, 5.0, 2.0, "run of the scarf"),
@@ -383,11 +390,13 @@ def sanity_checks(seed: int = 0):
             dmg = sp.Damage(x0=rng.uniform(7.5, 10.5))
             M, *_ = evaluate(FAMILIES[fam_key], {"a": rng.uniform(7, 11)}, dmg, st, grid)
             assert M < 1e-6
-    # 3. dovetail with no flare is the tenon
-    dmg = sp.Damage()
-    pt = ten.defaults()
-    pd = dict(FAMILIES["dovetail"].defaults(), ell=pt["ell"], t=pt["t"], flare=0.0)
-    assert abs(evaluate(ten, pt, dmg, st, grid)[0] - evaluate(FAMILIES["dovetail"], pd, dmg, st, grid)[0]) < 1e-6
+    # 3. a dovetail's tongue has the area its angle says, and its tip stays in the block
+    dv = FAMILIES["dovetail"]
+    for _ in range(20):
+        p = dv.feasible({q.name: rng.uniform(q.lo, q.hi) for q in dv.params}, grid.block)
+        area = dv.layers(p, grid.block)[0].removed.area - (grid.block.length - p["a"]) * grid.block.height
+        assert abs(area - p["ell"] * (p["t"] + _tip(p)) / 2) < 1e-9, (p, area)
+        assert p["yc"] + _tip(p) / 2 <= grid.block.height + 1e-9 and p["yc"] - _tip(p) / 2 >= -1e-9
     # 4. sound wood everywhere: every contact live, and every family but the
     #    butt carries a positive moment at its defaults
     far = sp.Damage(x0=30.0)
