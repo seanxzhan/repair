@@ -125,7 +125,7 @@ h1{font-size:22px;margin:0 0 6px} h2{font-size:16px;margin:22px 0 6px} p{margin:
 .top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start} @media(max-width:900px){.top{grid-template-columns:1fr 1fr}} @media(max-width:560px){.top{grid-template-columns:1fr}}
 body.nonn .nnonly{display:none} body.nonn .read{grid-template-columns:auto 1fr} .lponly{display:none} body.nonn .lponly{display:inline}
 .pic{position:relative;width:100%} .pic img{width:100%;display:block} .pic svg{position:absolute;left:0;top:0;width:100%;height:100%}
-label{display:block;font-size:13px;margin-top:6px} input[type=range]{width:100%}
+label{display:block;font-size:13px;margin-top:6px} input[type=range]{width:100%} input#lam{width:220px;display:inline-block;vertical-align:middle;margin-left:8px}
 .read{font-size:14px;margin:8px 0;display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 12px} .read b{font-weight:600}
 .lp{color:#111} .nn{color:#e8701a} .muted{color:#777;font-size:12px}
 canvas{width:100%;border:1px solid #ccc;display:block;cursor:crosshair} .hm{font-size:12px}
@@ -175,7 +175,8 @@ button{margin:4px 6px 4px 0;padding:5px 10px;font-size:13px} .note{background:#f
 <h2>3. Let <span class="nnonly">two walkers</span><span class="lponly">a walker</span> climb</h2>
 <p>Objective = capacity / peak &minus; &lambda; &middot; sound wood removed / max. <span class="nnonly">Each walker starts at the clicked point and takes small uphill steps, one using the LP's finite-difference slope, one using the surrogate's gradient. Both end points are then scored by the exact solver.</span><span class="lponly">The walker starts at the clicked point and takes small uphill steps using the LP's finite-difference slope: on a plateau it feels no slope in capacity at all.</span></p>
 <label>&lambda; (weight on sound wood removed) <span id="lamval"></span><input type="range" id="lam" min="0" max="4" step="0.1" value="1.5"></label>
-<button id="walk"><span class="nnonly">walk both</span><span class="lponly">walk</span></button><button id="reset">reset</button>
+<label>landscapes show <select id="show"><option value="cap">capacity</option><option value="obj">objective (changes with &lambda;)</option></select></label>
+<button id="walk"><span class="nnonly">walk both</span><span class="lponly">walk</span></button><button id="reset">reset</button> <span id="jumps" style="display:none"><button id="jumpLP">go to the LP walker's end</button><button id="jumpNN" class="nnonly">go to the surrogate walker's end</button></span>
 <div class="read">
  <span></span><b class="lp">LP-slope walker</b><b class="nn nnonly">surrogate-slope walker</b>
  <span>steps taken</span><span id="wsLP"></span><span class="nnonly" id="wsNN"></span>
@@ -215,11 +216,18 @@ function fd(M, i, j, axis) {   // finite difference on the grid, central where p
   const i0 = Math.max(i - 1, 0), i1 = Math.min(i + 1, NL - 1); return (M[i1][j] - M[i0][j]) / (L[i1] - L[i0]);
 }
 function color(v, vmax) { const t = vmax > 0 ? v / vmax : 0; const r = Math.round(247 - 200 * t), g = Math.round(251 - 170 * t), b = Math.round(255 - 110 * t); return `rgb(${r},${g},${b})`; }
-function heat(cv, M, label) {
-  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, m = {l: 36, r: 6, t: 6, b: 24}, vmax = Math.max(...M.flat());
+function landscape(M) {   // capacity, or the objective at the current lambda
+  if ($("show").value === "cap") return M;
+  const lam = +$("lam").value, pk = peak(F), rm = Rmax(F);
+  return M.map((row, i) => row.map((v, j) => v / pk - lam * F.R[i][j] / rm));
+}
+function heat(cv, M0, label) {
+  const M = landscape(M0);
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, m = {l: 36, r: 6, t: 6, b: 24};
+  const flat = M.flat(), vmin = Math.min(...flat), vmax = Math.max(...flat);
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
   const cw = (W - m.l - m.r) / NA, ch = (H - m.t - m.b) / NL;
-  for (let i = 0; i < NL; i++) for (let j = 0; j < NA; j++) { ctx.fillStyle = color(M[i][j], vmax); ctx.fillRect(m.l + j * cw, H - m.b - (i + 1) * ch, cw + 0.5, ch + 0.5); }
+  for (let i = 0; i < NL; i++) for (let j = 0; j < NA; j++) { ctx.fillStyle = color(M[i][j] - vmin, vmax - vmin); ctx.fillRect(m.l + j * cw, H - m.b - (i + 1) * ch, cw + 0.5, ch + 0.5); }
   ctx.fillStyle = "#333"; ctx.font = "11px sans-serif"; ctx.textAlign = "center";
   for (const j of [0, Math.floor(NA / 2), NA - 1]) ctx.fillText(A[j].toFixed(1), m.l + (j + 0.5) * cw, H - 8);
   ctx.textAlign = "right"; for (const i of [0, Math.floor(NL / 2), NL - 1]) ctx.fillText(L[i].toFixed(1), m.l - 4, H - m.b - (i + 0.5) * ch + 4);
@@ -262,18 +270,20 @@ function overlay() {
   $("chk").textContent = $("showf").checked ? `net force (${sfx.toFixed(1)}, ${sfy.toFixed(1)}); moment ${(-mom).toFixed(1)} = capacity` : "";
 }
 function slice() {
-  const W = 1000, H = 220, m = {l: 48, r: 10, t: 10, b: 30}, lp = F.lp[il], nn = F.nn[il], top = Math.max(1e-6, ...lp, ...($("shownn").checked ? nn : [])) * 1.08;
-  const sx = j => m.l + j / (NA - 1) * (W - m.l - m.r), sy = v => m.t + (1 - v / top) * (H - m.t - m.b);
+  const W = 1000, H = 220, m = {l: 48, r: 10, t: 10, b: 30}, lp = landscape(F.lp)[il], nn = landscape(F.nn)[il];
+  const lo0 = Math.min(0, ...lp, ...($("shownn").checked ? nn : [])), top0 = Math.max(1e-6, ...lp, ...($("shownn").checked ? nn : []));
+  const top = top0 + 0.08 * (top0 - lo0), bot = lo0 - 0.08 * (top0 - lo0);
+  const sx = j => m.l + j / (NA - 1) * (W - m.l - m.r), sy = v => m.t + (1 - (v - bot) / (top - bot)) * (H - m.t - m.b);
   let steps = "", curve = "";
   for (let j = 0; j < NA - 1; j++) steps += `${sx(j)},${sy(lp[j])} ${sx(j + 1)},${sy(lp[j])} `;
   const showNN = $("shownn").checked;
   for (let j = 0; j < NA; j++) curve += `${sx(j)},${sy(nn[j])} `;
   let ticks = ""; for (const j of [0, Math.floor(NA / 4), Math.floor(NA / 2), Math.floor(3 * NA / 4), NA - 1]) ticks += `<text x="${sx(j)}" y="${H - 10}" font-size="12" text-anchor="middle">${A[j].toFixed(1)}</text>`;
-  let yt = ""; for (const v of [0, top / 3.24, 2 * top / 3.24, top / 1.08]) yt += `<text x="${m.l - 6}" y="${sy(v) + 4}" font-size="12" text-anchor="end">${v.toFixed(0)}</text>`;
+  let yt = ""; const isObj = $("show").value === "obj"; for (let k = 0; k < 4; k++) { const v = lo0 + k * (top0 - lo0) / 3; yt += `<text x="${m.l - 6}" y="${sy(v) + 4}" font-size="12" text-anchor="end">${isObj ? v.toFixed(2) : v.toFixed(0)}</text>`; }
   $("slice").innerHTML = `<rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="none" stroke="#ccc"/>
    <polyline points="${steps}" fill="none" stroke="#111" stroke-width="2"/>${showNN ? `<polyline points="${curve}" fill="none" stroke="#e8701a" stroke-width="2.5"/>` : ""}
    <line x1="${sx(ia)}" y1="${m.t}" x2="${sx(ia)}" y2="${H - m.b}" stroke="#1ab07a" stroke-width="2" stroke-dasharray="4 3"/>${ticks}${yt}
-   <text x="${W - m.r}" y="${m.t + 14}" font-size="13" text-anchor="end"><tspan fill="#111">LP (staircase)</tspan>${showNN ? `   <tspan fill="#e8701a">surrogate (smooth)</tspan>` : ""}</text>
+   <text x="${W - m.r}" y="${m.t + 14}" font-size="13" text-anchor="end"><tspan fill="#111">LP (staircase)</tspan>${showNN ? `   <tspan fill="#e8701a">surrogate (smooth)</tspan>` : ""}   <tspan fill="#777">${isObj ? "objective" : "capacity"}</tspan></text>
    <text x="${(m.l + W) / 2}" y="${H - 0}" font-size="12" text-anchor="middle">${FAM.p1.name}  (${FAM.p2.name} = ${L[il].toFixed(2)})</text>`;
 }
 function render() {
@@ -316,6 +326,7 @@ $("walk").onclick = () => {
   $("weLP").textContent = `(${A[eLP[1]].toFixed(2)}, ${L[eLP[0]].toFixed(2)})`; $("weNN").textContent = `(${A[eNN[1]].toFixed(2)}, ${L[eNN[0]].toFixed(2)})`;
   const oLP = obj(F, eLP[0], eLP[1], lam), oNN = obj(F, eNN[0], eNN[1], lam);
   $("woLP").textContent = oLP.toFixed(3); $("woNN").textContent = oNN.toFixed(3); $("wbest").textContent = `${best.toFixed(3)} at (${A[bj].toFixed(2)}, ${L[bi].toFixed(2)})`;
+  $("jumps").style.display = "inline";
   const lpStalled = paths.lp.length - 1 < 3;
   if (!showNN) { $("verdict").textContent = lpStalled
     ? `The walker stopped after ${paths.lp.length - 1} step(s). On a plateau every finite difference of capacity is zero, so the only slope it feels is "remove less wood"; it drifts toward the rot until the first cliff, where it stops. Its objective is ${oLP.toFixed(3)}; the best cell on the grid is ${best.toFixed(3)}.`
@@ -325,9 +336,11 @@ $("walk").onclick = () => {
     : `LP-slope walker: ${paths.lp.length - 1} steps to objective ${oLP.toFixed(3)}. Surrogate-slope walker: ${paths.nn.length - 1} steps to ${oNN.toFixed(3)}. Best cell on the grid: ${best.toFixed(3)}. Both end points are scored by the exact solver.`;
   render();
 };
-$("reset").onclick = () => { start = null; paths = {lp: null, nn: null}; ["wsLP", "wsNN", "weLP", "weNN", "woLP", "woNN", "wbest"].forEach(id => $(id).textContent = ""); $("verdict").textContent = ""; render(); };
+$("reset").onclick = () => { start = null; paths = {lp: null, nn: null}; $("jumps").style.display = "none"; ["wsLP", "wsNN", "weLP", "weNN", "woLP", "woNN", "wbest"].forEach(id => $(id).textContent = ""); $("verdict").textContent = ""; render(); };
 $("a").oninput = () => { ia = +$("a").value; render(); }; $("l").oninput = () => { il = +$("l").value; render(); };
-$("lam").oninput = render;
+$("lam").oninput = render; $("show").onchange = render;
+$("jumpLP").onclick = () => { if (!paths.lp) return; const e = paths.lp[paths.lp.length - 1]; il = e[0]; ia = e[1]; $("a").value = ia; $("l").value = il; render(); };
+$("jumpNN").onclick = () => { if (!paths.nn) return; const e = paths.nn[paths.nn.length - 1]; il = e[0]; ia = e[1]; $("a").value = ia; $("l").value = il; render(); };
 $("showf").onchange = render;
 $("shownn").onchange = () => { document.body.classList.toggle("nonn", !$("shownn").checked); $("reset").onclick(); };
 sel.onchange = () => { setFamily(fsel.value, +sel.value); render(); };
