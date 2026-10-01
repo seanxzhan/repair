@@ -76,8 +76,15 @@ def main():
     rng = np.random.default_rng(a.seed)
     b, grid, st = sp.Block(), sp.Grid(), sp.Statics()
     nav = "".join(f'<a href="#{k}">{k}</a>' for k in keys)
+    n_fields, n_test = len(fields["seed"]), int(fields["test"].sum())
+    per_fam = {k: len(fams[k]["M"]) for k in keys}
+    total = sum(per_fam.values())
     parts = [f'<nav>{nav}</nav>',
-             f"<p>Each row: one damage field, {a.per_row} of its sampled interfaces from the same family.</p>"]
+             f"<p><b>{n_fields} damage fields</b> ({n_test} held out), <b>{total:,} rows</b> over {len(keys)} families, "
+             f"{min(per_fam.values()):,} to {max(per_fam.values()):,} per family, "
+             f"{per_fam[keys[0]] // n_fields} interfaces per family per field.</p>",
+             f"<p>Shown: {a.n} fields per family, {a.per_row} of their interfaces each. "
+             "Each row is one damage field with several interfaces from the same family on it.</p>"]
     for k in keys:
         fam, r = fm.FAMILIES[k], fams[k]
         fields_ok = np.unique(r["field"][r["test"]]) if a.test_only else np.unique(r["field"])
