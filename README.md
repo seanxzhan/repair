@@ -97,6 +97,24 @@ two of the family's parameters and draws capacity, the objective or the sound
 wood removed with the active-set cliffs overlaid; **go to landscape optimum**
 moves the two swept sliders onto the orange marker.
 
+## Generate the 2D Dataset
+
+Fields times interfaces: each random damage field gets, for every family, a
+batch of interfaces drawn within the family's bounds; each row stores the
+clipped parameters, the field index, capacity, sound wood removed and per-face
+live counts. The split is by field. `fields.npz` carries each field's seed and
+knobs (it is rebuilt exactly from them) and a 96 x 32 severity raster of the
+interface window, the network's damage input.
+
+```bash
+python examples/proto2d/generate_dataset.py                 # 2000 fields x 20 per family -> out/proto2d
+python examples/proto2d/report_dataset.py --n 4             # sample rows, re-solve, draw -> out/proto2d/report.html
+python examples/proto2d/report_dataset.py --test-only       # only held-out rows
+```
+
+The report is one self-contained HTML file (images embedded as base64); each
+example prints the stored label next to the re-solved one.
+
 ## Export / Inspect Our Own Parametrization
 
 The dataset's `vis_files/*_jwood.json` cannot be evaluated on their own: they store a 2D sketch and a plane but not the sketch's in-plane orientation, so a reader must recover it by searching against the ground-truth STL. Export a canonical form once (every LHF at orientation 0) and that dependency is gone:
