@@ -1,0 +1,38 @@
+# Step 4a: compare routes to the optimum on held-out fields (examples/proto2d/compare_optimizers.py).
+#   python examples/proto2d/compare_optimizers.py
+#   python examples/proto2d/compare_optimizers.py n_fields=10 families=[tenon,dovetail] starts=4
+defaults:
+  - _self_
+
+data_dir: out/proto2d
+models_dir: out/proto2d/models
+out_dir: out/proto2d/optimize
+families: null                # null: every family with a model
+n_fields: 6                   # held-out fields
+starts: 3                     # starts per (field, family); every route shares them
+start_probes: 16              # each start is the best of this many random LP probes (1: a plain random start)
+seed: 0
+workers: null                 # process pool size; null: cpu count - 1
+
+objective:
+  lam: 1.5
+  m_req: 0.0
+  pen: 4.0
+  r_ref: 12.0                 # m_ref is each family's training peak
+
+routes: [surrogate, soft_lp, hard_fd]
+ascent:
+  steps: 80
+  lr: 0.05
+  h: 0.02                     # finite-difference half-step, normalized units
+tau: 0.1                      # softness of the contact flags for soft_lp
+reference:
+  n_random: 1500
+  n_refine: 3
+
+hydra:
+  run:
+    dir: ${out_dir}
+  output_subdir: null
+  job:
+    chdir: false

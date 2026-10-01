@@ -25,7 +25,7 @@ If time runs out, ship in that order. Result 1 alone is the talk.
 | Cost per row | one solver call | one optimization, many solver calls |
 | Used how | inside an optimizer | one forward pass replaces the optimizer |
 
-B is the product. A is what makes B's labels affordable once the evaluator is FEM: thousands of optima at hundreds of FEM calls each is the expensive step, and running the optimizer on A instead makes each label cheap. With the LP, B's labels come straight from the solver. A is still built, because the future pipeline needs it and its generalization is worth testing now.
+B is the product, and A and B compose at inference: B's guess is the starting point, A's gradient refines it, the solver confirms the result. B is also what makes the start sensible: a random start in a five-parameter space usually lands in the rot, where no route has a slope in capacity. A is what makes B's labels affordable once the evaluator is FEM: thousands of optima at hundreds of FEM calls each is the expensive step, and running the optimizer on A instead makes each label cheap. With the LP, B's labels come straight from the solver. A is still built, because the future pipeline needs it and its generalization is worth testing now.
 
 On differentiability: the LP already has a gradient almost everywhere through its duals, and the cliffs in the capacity landscape come from a hard threshold that could be softened inside the LP. A learned gradient pays off only with many parameters, an evaluator without duals, or a gradient with respect to the damage itself. Those are 3D and FEM arguments for the proposal, not claims this prototype makes.
 
@@ -76,21 +76,26 @@ These rows are deliberately not good joints. A has to learn what a dead cut and 
 - Report test RMSE and R² on held-out fields.
 - Figure: one held-out field, one parameter swept, the LP's staircase and the surrogate's curve.
 
-### Step 4. Optimization and B's labels (one day)
+### Step 4a. The optimizer and the comparison table (done, first pass)
 
-Objective per family: capacity − λ · sound removed − penalty · max(0, required load − capacity)².
+Objective per family: capacity / M_ref − λ · sound removed / R_ref − penalty · max(0, required load − capacity)². M_ref is the family's training peak, R_ref half the block.
 
-For every field, run the optimizer for every family on the true LP: coarse grid search refined by a derivative-free local search, a few thousand LP calls per family per field, about an hour for all fields on this machine. Record the best parameters, the true objective, and which parameters sit on a bound. This table is B's training set.
+Four routes, all in the family's normalized parameter space, all projected to feasibility after every step, all re-scored by the hard LP at the end:
 
-On held-out fields only, from the same starts, also run:
+| Route | Gradient | Role |
+|---|---|---|
+| surrogate | the network's autograd for capacity; finite differences for the sound-wood term, which is smooth | the route the future pipeline needs |
+| soft LP | the LP with softened contact flags (every contact live with a budget scaled by a sigmoid of its severity), finite differences on that continuous landscape | the hand-made smooth solver; the fair comparison |
+| hard FD | finite differences on the hard LP | the staircase as a classical optimizer feels it |
+| reference | none: random search plus Nelder-Mead on the hard LP | the best available; the others are measured against it |
 
-| Method | Role |
-|---|---|
-| Gradient descent through A | the route the future pipeline needs; reported as "matches at a fraction of the calls" |
-| The LP with dual gradients and softened contact flags | the hand-made differentiable solver; the fair comparison for A's gradient |
-| Finite differences on the hard LP | shows the plateaus and cliffs |
+Starts: in the prototype each start is the best of 16 random LP probes, charged to every route, because a plain random start lands in the rot 71% of the time and every route then stalls on the dead plateau. In the pitch the start is the designer B's guess for the field: B proposes, the gradient route refines, the solver confirms. The comparison table measures the refinement step on its own.
 
-Every method's final joint is re-evaluated with the true solver. Report that number, never the surrogate's estimate.
+The table reports, per route: mean true objective, gap to the reference, how often the end point has zero capacity, how far the route's own estimate is from the LP's score, LP calls, and how often a parameter sits on a bound. Routes share their random starts. A polyscope viewer runs any route on any held-out field and scrubs the trajectory.
+
+### Step 4b. B's labels (next)
+
+For every field, train and held-out, run the reference route for every family: a few thousand LP calls per family per field, about an hour for all fields on this machine. Record the best parameters, the true objective, and which parameters sit on a bound. This table is B's training set.
 
 ### Step 5. Family selection and the designer, B (one day)
 
@@ -118,11 +123,12 @@ Two caveats to state on the slide:
 | 1. Families and damage | done | |
 | 2. Data for A | done | |
 | 3. Surrogate A | 0.5 d | 0.5 d |
-| 4. Optimizer table and baselines | 1 d | 1.5 d |
-| 5. Selection and B | 1 d | 2.5 d |
-| 6. Slides | 0.5 d | 3 d |
+| 4a. Optimizer and comparison table | done | |
+| 4b. Label table on every field | 0.5 d | 1 d |
+| 5. Selection and B | 1 d | 2 d |
+| 6. Slides | 0.5 d | 2.5 d |
 
-With two days: Step 4's table, Step 5 with the classifier only, figures 1 to 3.
+With two days: Step 4b's table, Step 5 with the classifier only, figures 1 to 3.
 
 ## Questions to have answers for
 

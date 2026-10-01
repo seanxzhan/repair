@@ -149,6 +149,22 @@ interpolates.
 python examples/proto2d/cliffs_demo.py --fields 3
 ```
 
+## Optimize
+
+`src/repair/proto2d/optimize.py` sets up the repair objective (capacity minus
+λ times sound wood removed, with an optional required load) and four routes to
+its optimum: gradient ascent through the surrogate, on the LP with softened
+contact flags, with finite differences on the hard LP, and a reference search
+on the hard LP. Every end point is re-scored by the hard LP.
+
+```bash
+python examples/proto2d/compare_optimizers.py                    # table on held-out fields -> out/proto2d/optimize/compare.html
+python examples/proto2d/compare_optimizers.py n_fields=10 starts=4 families=[tenon,dovetail]
+python examples/proto2d/inspect_optimize.py                      # polyscope: run a route, scrub its trajectory
+```
+
+Config: `configs/optimize.yaml`.
+
 ## Export / Inspect Our Own Parametrization
 
 The dataset's `vis_files/*_jwood.json` cannot be evaluated on their own: they store a 2D sketch and a plane but not the sketch's in-plane orientation, so a reader must recover it by searching against the ground-truth STL. Export a canonical form once (every LHF at orientation 0) and that dependency is gone:
