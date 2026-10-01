@@ -1,0 +1,43 @@
+# Training config for the capacity surrogate (repair.proto2d.train).
+#   python -m repair.proto2d.train family=tenon
+#   python -m repair.proto2d.train family=dovetail train.epochs=60 train.lr=3e-4
+#   python -m repair.proto2d.train -m family=tenon,dovetail,hooked_scarf     # hydra multirun
+defaults:
+  - _self_
+
+family: tenon
+data_dir: out/proto2d
+out_dir: out/proto2d/models
+
+model:
+  in_shape: [32, 96]
+  enc_channels: [16, 32, 64]
+  enc_out: 64
+  hidden: [256, 256, 256]
+  act: silu
+
+train:
+  seed: 0
+  device: cuda
+  epochs: 200
+  batch: 1024
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  zero_weight: 0.3        # loss weight on rows whose true capacity is zero
+  grad_clip: 1.0
+
+log:
+  backend: console        # console | wandb  (wandb: pip install wandb, then set project)
+  every: 20               # steps between training-loss logs
+  project: repair-proto2d
+  run_name: null          # default: the family
+  tags: []
+
+hydra:
+  run:
+    dir: ${out_dir}/${family}
+  sweep:
+    dir: ${out_dir}
+    subdir: ${family}
+  job:
+    chdir: false

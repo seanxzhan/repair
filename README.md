@@ -115,6 +115,28 @@ python examples/proto2d/report_dataset.py --test-only       # only held-out rows
 The report is one self-contained HTML file (images embedded as base64); each
 example prints the stored label next to the re-solved one.
 
+## Train and Evaluate the Surrogate
+
+The surrogate (`src/repair/proto2d/net.py`) reads the damage raster through a
+small convolutional encoder and the normalized interface parameters through an
+MLP, and predicts capacity. Training (`train.py`) and evaluation (`evaluate.py`)
+are hydra entry points; their configs are `configs/surrogate.yaml` and
+`configs/evaluate.yaml`, and any field can be overridden on the command line or
+by writing a new config. Logging goes through a two-method `Logger`; the console
+backend writes `log.jsonl`, and `log.backend=wandb` switches to Weights & Biases
+once `wandb` is installed.
+
+```bash
+python -m repair.proto2d.train family=tenon                       # -> out/proto2d/models/tenon/
+python -m repair.proto2d.train -m family=tenon,dovetail,hooked_scarf   # one run per family
+python -m repair.proto2d.train family=dovetail train.epochs=400 train.lr=3e-4
+python -m repair.proto2d.evaluate                                 # -> out/proto2d/models/report.html
+```
+
+The evaluation report gives test metrics per family on held-out fields and,
+for a few held-out fields each, one parameter swept with the LP's staircase
+against the surrogate's curve, drawn as inline SVG.
+
 ## Export / Inspect Our Own Parametrization
 
 The dataset's `vis_files/*_jwood.json` cannot be evaluated on their own: they store a 2D sketch and a plane but not the sketch's in-plane orientation, so a reader must recover it by searching against the ground-truth STL. Export a canonical form once (every LHF at orientation 0) and that dependency is gone:

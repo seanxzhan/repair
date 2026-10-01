@@ -13,52 +13,17 @@ parameters underneath. One section per family; each row is one damage field\nwit
 from __future__ import annotations
 
 import argparse
-import base64
 import html
-import io
 import sys
 from pathlib import Path
 
 import numpy as np
-import shapely
-from PIL import Image, ImageDraw
 
 try:
-    from repair.proto2d import dataset as ds, families as fm, model as sp
+    from repair.proto2d import dataset as ds, draw as dw, families as fm, model as sp
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-    from repair.proto2d import dataset as ds, families as fm, model as sp
-
-S = 60                                   # pixels per block unit
-X0 = 4.0                                 # draw x in [X0, length]
-WOOD, ROT, NEW = np.array([236, 220, 190]), np.array([120, 20, 20]), np.array([250, 248, 244])
-
-
-def render(fam, p, f, b: sp.Block, cs, M, R):
-    W, H = int((b.length - X0) * S), int(b.height * S)
-    xs = X0 + (np.arange(W) + 0.5) / S; ys = b.height - (np.arange(H) + 0.5) / S
-    X, Y = np.meshgrid(xs, ys)
-    sev = np.clip(f.severity(X, Y), 0, 1)[..., None]
-    rgb = (WOOD * (1 - sev) + ROT * sev).astype(np.uint8)
-    dead = sev[..., 0] >= f.crit
-    edge = np.zeros_like(dead); edge[:, 1:] |= dead[:, 1:] != dead[:, :-1]; edge[1:, :] |= dead[1:, :] != dead[:-1, :]
-    # the new wood: the damage it replaces stays visible, faded toward the new-wood tint
-    for lay in fam.layers(p, b):
-        removed = shapely.contains_xy(lay.removed, X.ravel(), Y.ravel()).reshape(X.shape)
-        rgb[removed] = (0.35 * rgb[removed] + 0.65 * NEW).astype(np.uint8)
-    rgb[edge] = (0, 0, 0)
-    img = Image.fromarray(rgb); dr = ImageDraw.Draw(img)
-    to_px = lambda x, y: ((x - X0) * S, (b.height - y) * S)
-    for lay in fam.layers(p, b):
-        for p0, p1, _ in fm.interface_segments(lay, b):
-            dr.line([to_px(*p0), to_px(*p1)], fill=(0, 0, 0), width=2)
-    for c in cs:
-        x, y = to_px(*c.point); r = 3
-        dr.ellipse([x - r, y - r, x + r, y + r], fill=(20, 160, 20) if c.live else (210, 50, 50))
-    dr.rectangle([0, 0, W - 1, H - 1], outline=(0, 0, 0))
-    buf = io.BytesIO(); img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode("ascii")
-
+    from repair.proto2d import dataset as ds, draw as dw, families as fm, model as sp
 
 def main():
     ap = argparse.ArgumentParser()
@@ -98,7 +63,7 @@ def main():
             for i in two:
                 p = fam.from_vector(r["params"][i])
                 M, R, cs, _ = fm.evaluate(fam, p, f, st, grid)
-                png = render(fam, p, f, b, cs, M, R)
+                png = dw.png_base64(dw.draw(fam, p, f, cs, b))
                 ps = "  ".join(f"{n} {v:.2f}" for n, v in zip(r["param_names"], r["params"][i]))
                 cells.append(f'<div class="ex"><img src="data:image/png;base64,{png}">'
                              f"<div>M {M:.1f}  &middot;  sound removed {R:.2f}  &middot;  live {sum(c.live for c in cs)}/{len(cs)}<br>{ps}</div></div>")

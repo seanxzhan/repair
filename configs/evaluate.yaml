@@ -1,0 +1,24 @@
+# Evaluation config for trained surrogates (repair.proto2d.evaluate).
+#   python -m repair.proto2d.evaluate
+#   python -m repair.proto2d.evaluate families=[tenon,dovetail] n_fields=6
+defaults:
+  - _self_
+
+data_dir: out/proto2d
+models_dir: out/proto2d/models
+out: out/proto2d/models/report.html
+families: null            # null: every family with a model.pt
+device: cuda
+seed: 0
+
+sweep:
+  n_fields: 4             # held-out fields per family
+  n_points: 161           # LP evaluations along the sweep
+  param: null             # which parameter to sweep; null: the family's shoulder / start (a)
+
+hydra:
+  run:
+    dir: ${models_dir}
+  output_subdir: null
+  job:
+    chdir: false
