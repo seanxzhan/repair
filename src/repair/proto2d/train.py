@@ -1,10 +1,7 @@
-"""Train the capacity surrogate for one family.
+"""Training the capacity surrogate for one family: data, loop, loggers.
 
-    python -m repair.proto2d.train family=tenon
-    python -m repair.proto2d.train family=dovetail train.epochs=60
-    python -m repair.proto2d.train -m family=tenon,tenon_flip,dovetail     # one run per family
-
-Config: configs/surrogate.yaml (hydra). Outputs go to out/proto2d/models/<family>/:
+The entry point is examples/proto2d/train_surrogate.py (hydra, config in
+configs/surrogate.yaml). A run writes to out/proto2d/models/<family>/:
 model.pt (weights + normalization), metrics.json, log.jsonl, and hydra's
 .hydra/config.yaml with the resolved config.
 
@@ -18,7 +15,6 @@ import json
 import time
 from pathlib import Path
 
-import hydra
 import numpy as np
 import torch
 from omegaconf import DictConfig, OmegaConf
@@ -173,22 +169,3 @@ def load_model(path, device="cpu"):
     model = nets.build(cfg, len(ck["normalization"]["param_names"])).to(device)
     model.load_state_dict(ck["state_dict"]); model.eval()
     return model, ck
-
-
-@hydra.main(version_base=None, config_path="../../../configs", config_name="surrogate")
-def main(cfg: DictConfig):
-    if cfg.family == "butt":
-        raise SystemExit("the plain cut's capacity is identically zero; nothing to learn")
-    run_dir = Path(hydra.core.hydra_config.HydraConfig.get().run.dir
-                   if hydra.core.hydra_config.HydraConfig.get().mode.name == "RUN"
-                   else Path(hydra.core.hydra_config.HydraConfig.get().sweep.dir) / hydra.core.hydra_config.HydraConfig.get().sweep.subdir)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    logger = LOGGERS[cfg.log.backend](cfg, run_dir)
-    try:
-        train(cfg, run_dir, logger)
-    finally:
-        logger.finish()
-
-
-if __name__ == "__main__":
-    main()

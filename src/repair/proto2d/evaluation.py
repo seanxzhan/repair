@@ -1,9 +1,7 @@
-"""Evaluate trained surrogates on held-out fields, with the staircase figure.
+"""Evaluating trained surrogates on held-out fields, with the staircase figure.
 
-    python -m repair.proto2d.evaluate                      # every family with a model -> models/report.html
-    python -m repair.proto2d.evaluate families=[tenon] sweep.n_fields=8
-
-For each family: test metrics (RMSE, R^2, dead/live accuracy), then for a few
+The entry point is examples/proto2d/evaluate_surrogate.py (hydra, config in
+configs/evaluate.yaml). For each family: test metrics (RMSE, R^2, dead/live accuracy), then for a few
 held-out fields a 1D sweep of one parameter with the LP's capacity (the
 staircase) and the surrogate's prediction, drawn as inline SVG next to a
 picture of the field with the base interface. Config: configs/evaluate.yaml.
@@ -13,7 +11,6 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-import hydra
 import numpy as np
 import torch
 from omegaconf import DictConfig
@@ -57,8 +54,7 @@ def svg_sweep(x, lp, nn_, name, width=520, height=200):
             f'<text x="{width - mr}" y="{mt + 12}" font-size="11" text-anchor="end"><tspan fill="#111">LP</tspan>  <tspan fill="#e8701a">surrogate</tspan></text></svg>')
 
 
-@hydra.main(version_base=None, config_path="../../../configs", config_name="evaluate")
-def main(cfg: DictConfig):
+def report(cfg: DictConfig) -> Path:
     device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
     models_dir = Path(cfg.models_dir)
     keys = list(cfg.families) if cfg.families else sorted(p.parent.name for p in models_dir.glob("*/model.pt"))
@@ -108,8 +104,4 @@ def main(cfg: DictConfig):
                    f"<title>surrogate evaluation</title><style>{css}</style></head><body><nav>{nav}</nav>"
                    f"<p>Surrogates on held-out fields. Metrics on all test rows; below, per family, one parameter swept on a few held-out fields: "
                    f"the LP's capacity (black staircase) against the surrogate (orange).</p>{table}{''.join(sections)}</body></html>")
-    print(out)
-
-
-if __name__ == "__main__":
-    main()
+    return out

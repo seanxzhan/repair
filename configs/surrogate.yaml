@@ -1,7 +1,7 @@
-# Training config for the capacity surrogate (repair.proto2d.train).
-#   python -m repair.proto2d.train family=tenon
-#   python -m repair.proto2d.train family=dovetail train.epochs=60 train.lr=3e-4
-#   python -m repair.proto2d.train -m family=tenon,dovetail,hooked_scarf     # hydra multirun
+# Training config for the capacity surrogate (examples/proto2d/train_surrogate.py).
+#   python examples/proto2d/train_surrogate.py family=tenon
+#   python examples/proto2d/train_surrogate.py family=dovetail train.epochs=400 train.lr=3e-4
+#   python examples/proto2d/train_surrogate.py -m family=tenon,dovetail,hooked_scarf     # hydra multirun
 defaults:
   - _self_
 

@@ -119,18 +119,19 @@ example prints the stored label next to the re-solved one.
 
 The surrogate (`src/repair/proto2d/net.py`) reads the damage raster through a
 small convolutional encoder and the normalized interface parameters through an
-MLP, and predicts capacity. Training (`train.py`) and evaluation (`evaluate.py`)
-are hydra entry points; their configs are `configs/surrogate.yaml` and
+MLP, and predicts capacity. Training and evaluation are hydra entry points under `examples/proto2d/`,
+with the loops in `train.py` and `evaluation.py` in the package; their configs are `configs/surrogate.yaml` and
 `configs/evaluate.yaml`, and any field can be overridden on the command line or
 by writing a new config. Logging goes through a two-method `Logger`; the console
 backend writes `log.jsonl`, and `log.backend=wandb` switches to Weights & Biases
 once `wandb` is installed.
 
 ```bash
-python -m repair.proto2d.train family=tenon                       # -> out/proto2d/models/tenon/
-python -m repair.proto2d.train -m family=tenon,dovetail,hooked_scarf   # one run per family
-python -m repair.proto2d.train family=dovetail train.epochs=400 train.lr=3e-4
-python -m repair.proto2d.evaluate                                 # -> out/proto2d/models/report.html
+python examples/proto2d/train_surrogate.py family=tenon                          # -> out/proto2d/models/tenon/
+python examples/proto2d/train_surrogate.py -m family=tenon,dovetail,hooked_scarf      # one run per family
+python examples/proto2d/train_surrogate.py family=dovetail train.epochs=400 train.lr=3e-4
+python examples/proto2d/train_surrogate.py --config-name my_experiment              # configs/my_experiment.yaml
+python examples/proto2d/evaluate_surrogate.py                                    # -> out/proto2d/models/report.html
 ```
 
 The evaluation report gives test metrics per family on held-out fields and,
