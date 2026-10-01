@@ -138,6 +138,17 @@ The evaluation report gives test metrics per family on held-out fields and,
 for a few held-out fields each, one parameter swept with the LP's staircase
 against the surrogate's curve, drawn as inline SVG.
 
+`examples/proto2d/cliffs_demo.py` builds an interactive page
+(`out/proto2d/cliffs_demo.html`): drag a tenon's shoulder and length on a
+held-out rotten block, compare the LP's capacity and slope with the surrogate's,
+see the staircase against the smooth curve, and let two walkers climb the
+objective using each slope. Everything is precomputed on a grid; the page only
+interpolates.
+
+```bash
+python examples/proto2d/cliffs_demo.py --fields 3
+```
+
 ## Export / Inspect Our Own Parametrization
 
 The dataset's `vis_files/*_jwood.json` cannot be evaluated on their own: they store a 2D sketch and a plane but not the sketch's in-plane orientation, so a reader must recover it by searching against the ground-truth STL. Export a canonical form once (every LHF at orientation 0) and that dependency is gone:
