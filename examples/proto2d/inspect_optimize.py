@@ -165,7 +165,7 @@ class Viewer:
             if psim.Button("random start"):
                 self.seed += 1; self.x = self.prob.project(np.random.default_rng(self.seed).random(len(self.prob.names))); self.run = None; changed = True
         if psim.CollapsingHeader("route", True):
-            _, self.route_idx = psim.Combo("route", self.route_idx, ROUTES)
+            _, self.route_idx = psim.Combo("route##pick", self.route_idx, ROUTES)
             _, self.steps = psim.SliderInt("steps", self.steps, 5, 300)
             _, self.lr = psim.SliderFloat("learning rate", self.lr, 0.005, 0.2)
             _, self.h = psim.SliderFloat("finite-difference half-step", self.h, 0.002, 0.1)

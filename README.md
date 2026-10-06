@@ -69,6 +69,21 @@ python examples/proto2d/inspect_splice.py --headless   # readouts only
 The model itself is `src/repair/proto2d/model.py`; `docs/figures/proposal.py` renders
 it once at the viewer's default settings.
 
+## Inspect the Capacity LP
+
+A viewer for the solver itself: pick a contact configuration (two textbook
+cases or a family at its defaults, in sound wood or under the Figure 1 front),
+move friction and the force cap, kill faces one at a time. Each contact shows
+its friction cone, grey, or orange when the LP's force sits on the cone's edge;
+the readout lists every contact that carries force with its normal and friction
+components, how much of its cone it uses and its moment contribution, plus
+capacity against friction.
+
+```bash
+python examples/proto2d/inspect_lp.py              # open the viewer
+python examples/proto2d/inspect_lp.py --headless   # readouts for every preset
+```
+
 ## Inspect the 2D Interface Families
 
 `src/repair/proto2d/families.py` makes the interface family the variable: a family
@@ -96,6 +111,17 @@ every knob a slider, or drawn at random from the data-generation ranges). **comp
 two of the family's parameters and draws capacity, the objective or the sound
 wood removed with the active-set cliffs overlaid; **go to landscape optimum**
 moves the two swept sliders onto the orange marker.
+
+## Gallery: Damage Fields and Joint Families
+
+One page for showing people what the inputs and the design space look like:
+random damage fields on the whole block with no joint, and separately every
+joint family drawn in sound wood, at its defaults and a few random variations.
+
+```bash
+python examples/proto2d/gallery.py                          # -> out/proto2d/gallery.html
+python examples/proto2d/gallery.py --fields 36 --variations 4 --seed 1
+```
 
 ## Generate the 2D Dataset
 

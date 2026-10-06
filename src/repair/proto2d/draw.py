@@ -46,6 +46,20 @@ def draw(fam: fm.Family, p: dict, f, cs=None, b: Block = Block(), scale: int = 6
     return img
 
 
+def draw_field(f, b: Block = Block(), scale: int = 40, x0: float = 0.0) -> Image.Image:
+    """A damage field alone: severity from wood to rot, the crit contour in black."""
+    W, H = int((b.length - x0) * scale), int(b.height * scale)
+    xs = x0 + (np.arange(W) + 0.5) / scale; ys = b.height - (np.arange(H) + 0.5) / scale
+    X, Y = np.meshgrid(xs, ys)
+    sev = np.clip(f.severity(X, Y), 0, 1)[..., None]
+    rgb = (WOOD * (1 - sev) + ROT * sev).astype(np.uint8)
+    dead = sev[..., 0] >= f.crit
+    edge = np.zeros_like(dead); edge[:, 1:] |= dead[:, 1:] != dead[:, :-1]; edge[1:, :] |= dead[1:, :] != dead[:-1, :]
+    rgb[edge] = (0, 0, 0)
+    img = Image.fromarray(rgb); ImageDraw.Draw(img).rectangle([0, 0, W - 1, H - 1], outline=(0, 0, 0))
+    return img
+
+
 def png_base64(img: Image.Image) -> str:
     buf = io.BytesIO(); img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")

@@ -54,8 +54,12 @@ def precompute(fam, model, ck, f, raster_t, g1, g2, n1, n2, fixed, device, grid,
             M, r, cs, Fc = fm.evaluate(fam, p, f, st, grid)
             LP[i, j], R[i, j] = M, r
             pts.append([p[k] for k in names])
-            segs = [s for lay in fam.layers(p, b) for s in fm.interface_segments(lay, b)]
+            layers = fam.layers(p, b)
+            segs = [s for lay in layers for s in fm.interface_segments(lay, b)]
+            rings = [[[round(float(x), 3), round(float(y), 3)] for x, y in g.exterior.coords]
+                     for lay in layers for g in getattr(lay.removed, "geoms", [lay.removed]) if g.geom_type == "Polygon" and not g.is_empty]
             geom.append({"s": [[round(float(v), 3) for v in (s[0][0], s[0][1], s[1][0], s[1][1])] for s in segs],
+                         "r": rings,
                          "c": i16([[c.point[0], c.point[1]] for c in cs], 1000), "l": "".join("1" if c.live else "0" for c in cs),
                          "f": i16(Fc, 10)})
     P = torch.tensor((np.array(pts, np.float32) - lo) / (hi - lo), device=device, requires_grad=True)
@@ -125,67 +129,68 @@ h1{font-size:22px;margin:0 0 6px} h2{font-size:16px;margin:22px 0 6px} p{margin:
 .top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start} @media(max-width:900px){.top{grid-template-columns:1fr 1fr}} @media(max-width:560px){.top{grid-template-columns:1fr}}
 body.nonn .nnonly{display:none} body.nonn .read{grid-template-columns:auto 1fr} .lponly{display:none} body.nonn .lponly{display:inline}
 .pic{position:relative;width:100%} .pic img{width:100%;display:block} .pic svg{position:absolute;left:0;top:0;width:100%;height:100%}
-label{display:block;font-size:13px;margin-top:6px} input[type=range]{width:100%} input#lam{width:220px;display:inline-block;vertical-align:middle;margin-left:8px}
+label{display:block;font-size:13px;margin-top:6px} input[type=range]{width:100%} input#lam,input#req{width:220px;display:inline-block;vertical-align:middle;margin-left:8px}
 .read{font-size:14px;margin:8px 0;display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 12px} .read b{font-weight:600}
 .lp{color:#111} .nn{color:#e8701a} .muted{color:#777;font-size:12px}
 canvas{width:100%;border:1px solid #ccc;display:block;cursor:crosshair} .hm{font-size:12px}
 button{margin:4px 6px 4px 0;padding:5px 10px;font-size:13px} .note{background:#f6f3ee;border-left:3px solid #e8701a;padding:8px 10px;font-size:14px}
 </style></head><body>
-<h1>Repairing a rotten block: capacity, cliffs, and a smooth stand-in</h1>
+<h1>Capacity, cliffs, and a smooth stand-in</h1>
 <label>joint family <select id="family"></select> <span class="muted" id="famdoc"></span></label>
 <label>damage field <select id="field"></select> <span class="muted" id="knobs"></span> &nbsp; <input type="checkbox" id="shownn" checked> <span class="nn">show the surrogate</span> <span class="muted">(off: just the exact solver)</span></label>
 
-<h2>1. Capacity: how much bending a repair can take</h2>
+<h2>1. Capacity</h2>
 <div class="row">
  <div>
   <div class="pic"><img id="img"><svg id="ov" viewBox="0 0 480 120" preserveAspectRatio="none"></svg></div>
-  <div class="muted">retained wood coloured by rot; the new wood is pale; green = live contact, red = dead</div>
+  <div class="muted">old wood coloured by rot, new wood pale; green = live contact, red = dead</div>
   <label><span id="p1name"></span> <span id="aval"></span><input type="range" id="a" min="0" step="1"></label>
   <label><span id="p2name"></span> <span id="lval"></span><input type="range" id="l" min="0" step="1"></label>
  </div>
  <div>
-  <p>The rotten end of the block is cut away and a new piece is fitted with a joint. The two pieces touch along the black interface, sampled at the dots.</p>
-  <p><b>Capacity is a moment</b>: the largest twist the joint can balance before it slips or comes apart. An exact solver (a linear program, LP) finds it by placing pushes on the contact dots (orange arrows): a dot can push but not pull, friction limits sideways force, and a dot backed by rot (red) carries nothing. The pushes add up to zero net force, but they act at different places, so their lever arms give a net moment. The largest twist they can balance, the curved arrow on the new piece, is the capacity. A plain cut has capacity zero: all its pushes point the same way, so they cannot balance any twist.</p>
+  <p>The rotten end is cut away and a new piece is joined on. The pieces touch along the blue line, sampled at the dots.</p>
+  <p><b>Capacity</b> is the largest twist the joint can balance. A linear program (LP) finds it by placing pushes on the dots (orange arrows): push only, friction-limited, and nothing on a dot backed by rot. A plain cut has capacity zero: all its pushes point the same way.</p>
   <div class="read">
    <span>capacity (exact solver)</span><span class="lp" id="lpM"></span><span class="nn nnonly"><span class="muted">surrogate says</span> <span id="nnM"></span></span>
    <span>sound wood removed</span><span id="R"></span><span class="nnonly"></span>
    <span>the drawn pushes</span><span id="chk"></span><span class="nnonly"></span>
   </div>
-  <label><input type="checkbox" id="showf" checked> show the pushes and the twist they balance</label>
-  <p class="muted">Drag the sliders. Watch dots turn red as faces cross into rot, the pushes move to whatever is left, and the capacity drop.</p>
+  <label><input type="checkbox" id="showc" checked> show the contacts &nbsp; <input type="checkbox" id="showf" checked> show the pushes &nbsp; <input type="checkbox" id="shownew"> show the new wood</label>
+  <p class="muted">Drag the sliders: dots turn red as faces enter the rot, and capacity drops.</p>
  </div>
 </div>
 
-<h2>2. Cliffs: capacity changes in steps, not slopes</h2>
-<p>A face carries load until the moment it crosses into rot, then nothing. So as the cut moves, capacity stays flat and then drops in a step. Searching for the best joint means nudging the design and asking "better or worse?", and on a flat step the answer is always "no change". The best joint sits right at a step edge, as close to the rot as it dares.<span class="nnonly"> The trained surrogate is a smooth hill through the same staircase, so a nudge always points somewhere.</span></p>
+<h2>2. Cliffs</h2>
+<p>A face carries load until it crosses into rot, then nothing, so capacity is flat and then drops in a step. On a flat step a nudge changes nothing, yet the best joint sits right at a step edge.<span class="nnonly"> The surrogate is a smooth hill through the same staircase, so a nudge always points somewhere.</span></p>
 <div class="top">
- <div><div class="hm"><b class="lp">LP capacity</b> over (<span class="pn"></span>). Click to set the walkers' start.</div><canvas id="hmLP" width="366" height="246"></canvas></div>
- <div class="nnonly"><div class="hm"><b class="nn">surrogate capacity</b> over (<span class="pn"></span>)</div><canvas id="hmNN" width="366" height="246"></canvas></div>
+ <div><div class="hm"><b class="lp">LP</b> over (<span class="pn"></span>). Click to set the start.</div><canvas id="hmLP" width="414" height="246"></canvas></div>
+ <div class="nnonly"><div class="hm"><b class="nn">surrogate</b> over (<span class="pn"></span>)</div><canvas id="hmNN" width="414" height="246"></canvas></div>
  <div>
   <div class="read">
-   <span></span><b class="lp">exact solver (LP)</b><b class="nn nnonly">surrogate</b>
+   <span></span><b class="lp">LP</b><b class="nn nnonly">surrogate</b>
    <span>slope along <span class="p1n"></span></span><span class="lp" id="lpGa"></span><span class="nn nnonly" id="nnGa"></span>
    <span>slope along <span class="p2n"></span></span><span class="lp" id="lpGl"></span><span class="nn nnonly" id="nnGl"></span>
   </div>
-  <div class="muted">LP slope = finite difference across one grid step. On a plateau it is exactly 0: no direction to improve.<span class="nnonly"> The surrogate's slope is its true gradient.</span></div>
+  <div class="muted">LP slope: finite difference over one grid step, exactly 0 on a plateau.<span class="nnonly"> Surrogate slope: its gradient.</span></div>
  </div>
 </div>
 <svg id="slice" viewBox="0 0 1000 220" width="100%"></svg>
-<div class="muted">A slice along <span class="p1n"></span> at the current <span class="p2n"></span>.</div>
-<h2>3. Let <span class="nnonly">two walkers</span><span class="lponly">a walker</span> climb</h2>
-<p>Objective = capacity / peak &minus; &lambda; &middot; sound wood removed / max. <span class="nnonly">Each walker starts at the clicked point and takes small uphill steps, one using the LP's finite-difference slope, one using the surrogate's gradient. Both end points are then scored by the exact solver.</span><span class="lponly">The walker starts at the clicked point and takes small uphill steps using the LP's finite-difference slope: on a plateau it feels no slope in capacity at all.</span></p>
+<div class="muted">Slice along <span class="p1n"></span> at the current <span class="p2n"></span>.</div>
+<h2>3. Climb</h2>
+<p>Objective = capacity / peak &minus; &lambda; &middot; sound wood removed / max &minus; 4 &middot; max(0, required &minus; capacity / peak)&sup2;. The last term keeps "cut nothing" from scoring zero; it does not tilt the dead plateau, so start on the live side of the rot. <span class="nnonly">Two walkers climb from the clicked point, one on the LP's finite-difference slope, one on the surrogate's gradient. Both ends are scored by the LP.</span><span class="lponly">The walker climbs from the clicked point on the LP's finite-difference slope.</span></p>
 <label>&lambda; (weight on sound wood removed) <span id="lamval"></span><input type="range" id="lam" min="0" max="4" step="0.1" value="1.5"></label>
-<label>landscapes show <select id="show"><option value="cap">capacity</option><option value="obj">objective (changes with &lambda;)</option></select></label>
-<button id="walk"><span class="nnonly">walk both</span><span class="lponly">walk</span></button><button id="reset">reset</button> <span id="jumps" style="display:none"><button id="jumpLP">go to the LP walker's end</button><button id="jumpNN" class="nnonly">go to the surrogate walker's end</button></span>
+<label>required load (fraction of peak capacity) <span id="reqval"></span><input type="range" id="req" min="0" max="1" step="0.05" value="0.3"></label>
+<label>maps show <select id="show"><option value="cap">capacity</option><option value="obj">objective</option></select></label>
+<button id="walk"><span class="nnonly">walk both</span><span class="lponly">walk</span></button><button id="reset">reset</button> <span id="jumps" style="display:none"><button id="jumpLP">go to LP end</button><button id="jumpNN" class="nnonly">go to surrogate end</button><button id="jumpStart">back to start</button></span>
 <div class="read">
- <span></span><b class="lp">LP-slope walker</b><b class="nn nnonly">surrogate-slope walker</b>
- <span>steps taken</span><span id="wsLP"></span><span class="nnonly" id="wsNN"></span>
- <span>ends at (<span class="pn"></span>)</span><span id="weLP"></span><span class="nnonly" id="weNN"></span>
- <span>objective there, scored by the LP</span><span id="woLP"></span><span class="nnonly" id="woNN"></span>
- <span>best on the grid, scored by the LP</span><span id="wbest"></span><span class="nnonly"></span>
+ <span></span><b class="lp">LP walker</b><b class="nn nnonly">surrogate walker</b>
+ <span>steps</span><span id="wsLP"></span><span class="nnonly" id="wsNN"></span>
+ <span>end (<span class="pn"></span>)</span><span id="weLP"></span><span class="nnonly" id="weNN"></span>
+ <span>objective at end (LP)</span><span id="woLP"></span><span class="nnonly" id="woNN"></span>
+ <span>best on grid (LP)</span><span id="wbest"></span><span class="nnonly"></span>
 </div>
 <div class="note" id="verdict"></div>
-<p class="muted"><span class="nnonly">Surrogate test error on held-out fields: RMSE <span id="rmse"></span> capacity units, R&sup2; <span id="r2"></span>. </span>Fixed parameters: <span id="fixed"></span>. Everything on this page was precomputed on a <span id="gridsz"></span> grid; the page only interpolates.</p>
+<p class="muted"><span class="nnonly">Surrogate on held-out fields: RMSE <span id="rmse"></span>, R&sup2; <span id="r2"></span>. </span>Fixed: <span id="fixed"></span>. Precomputed on a <span id="gridsz"></span> grid.</p>
 <script>
 const D = __DATA__;
 const $ = id => document.getElementById(id);
@@ -209,8 +214,12 @@ function setFamily(key, fieldIndex) {
 }
 setFamily(KEYS[0], 0);
 const peak = f => Math.max(...f.lp.flat()), Rmax = f => Math.max(...f.R.flat());
-function obj(f, i, j, lam) { return f.lp[i][j] / peak(f) - lam * f.R[i][j] / Rmax(f); }
-function objNN(f, i, j, lam) { return f.nn[i][j] / peak(f) - lam * f.R[i][j] / Rmax(f); }
+const MU = 4;                                                   // weight of the required-load penalty
+const req = () => +$("req").value;                              // required load, as a fraction of the family's peak
+const pen = c => MU * Math.max(0, req() - c) ** 2;              // c: capacity / peak
+const dpen = c => 1 + 2 * MU * Math.max(0, req() - c);          // d(c - pen(c)) / dc
+function obj(f, i, j, lam) { const c = f.lp[i][j] / peak(f); return c - pen(c) - lam * f.R[i][j] / Rmax(f); }
+function objNN(f, i, j, lam) { const c = f.nn[i][j] / peak(f); return c - pen(c) - lam * f.R[i][j] / Rmax(f); }
 function fd(M, i, j, axis) {   // finite difference on the grid, central where possible
   if (axis === 0) { const j0 = Math.max(j - 1, 0), j1 = Math.min(j + 1, NA - 1); return (M[i][j1] - M[i][j0]) / (A[j1] - A[j0]); }
   const i0 = Math.max(i - 1, 0), i1 = Math.min(i + 1, NL - 1); return (M[i1][j] - M[i0][j]) / (L[i1] - L[i0]);
@@ -219,11 +228,11 @@ function color(v, vmax) { const t = vmax > 0 ? v / vmax : 0; const r = Math.roun
 function landscape(M) {   // capacity, or the objective at the current lambda
   if ($("show").value === "cap") return M;
   const lam = +$("lam").value, pk = peak(F), rm = Rmax(F);
-  return M.map((row, i) => row.map((v, j) => v / pk - lam * F.R[i][j] / rm));
+  return M.map((row, i) => row.map((v, j) => v / pk - pen(v / pk) - lam * F.R[i][j] / rm));
 }
-function heat(cv, M0, label) {
+function heat(cv, M0, label, which) {   // which: "lp" or "nn", the walker drawn on this map
   const M = landscape(M0);
-  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, m = {l: 36, r: 6, t: 6, b: 24};
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, m = {l: 36, r: 54, t: 6, b: 24};
   const flat = M.flat(), vmin = Math.min(...flat), vmax = Math.max(...flat);
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
   const cw = (W - m.l - m.r) / NA, ch = (H - m.t - m.b) / NL;
@@ -231,9 +240,16 @@ function heat(cv, M0, label) {
   ctx.fillStyle = "#333"; ctx.font = "11px sans-serif"; ctx.textAlign = "center";
   for (const j of [0, Math.floor(NA / 2), NA - 1]) ctx.fillText(A[j].toFixed(1), m.l + (j + 0.5) * cw, H - 8);
   ctx.textAlign = "right"; for (const i of [0, Math.floor(NL / 2), NL - 1]) ctx.fillText(L[i].toFixed(1), m.l - 4, H - m.b - (i + 0.5) * ch + 4);
-  ctx.textAlign = "left"; ctx.fillText(FAM.p1.name + " →", W - 34, H - 8); ctx.save(); ctx.translate(10, 44); ctx.rotate(-Math.PI / 2); ctx.fillText(FAM.p2.name + " →", 0, 0); ctx.restore();
+  ctx.textAlign = "left"; ctx.fillText(FAM.p1.name + " →", W - m.r - 34, H - 8); ctx.save(); ctx.translate(10, 44); ctx.rotate(-Math.PI / 2); ctx.fillText(FAM.p2.name + " →", 0, 0); ctx.restore();
+  // colour bar: the map's own range, low at the bottom
+  const bx = W - m.r + 10, bw = 10, by0 = m.t, bh = H - m.t - m.b;
+  for (let k = 0; k < bh; k++) { ctx.fillStyle = color(1 - k / bh, 1); ctx.fillRect(bx, by0 + k, bw, 1.5); }
+  ctx.strokeStyle = "#999"; ctx.lineWidth = 1; ctx.strokeRect(bx, by0, bw, bh);
+  ctx.fillStyle = "#333"; ctx.textAlign = "left";
+  const fmt = v => (vmax - vmin > 5 ? v.toFixed(0) : v.toFixed(2));
+  ctx.fillText(fmt(vmax), bx + bw + 3, by0 + 9); ctx.fillText(fmt((vmax + vmin) / 2), bx + bw + 3, by0 + bh / 2 + 4); ctx.fillText(fmt(vmin), bx + bw + 3, by0 + bh);
   const px = (i, j) => [m.l + (j + 0.5) * cw, H - m.b - (i + 0.5) * ch];
-  for (const [key, col] of [["lp", "#111"], ["nn", "#e8701a"]]) { const p = paths[key]; if (!p) continue; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); p.forEach(([i, j], k) => { const [x, y] = px(i, j); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); const [x, y] = px(...p[p.length - 1]); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }
+  for (const [key, col] of [["lp", "#111"], ["nn", "#e8701a"]]) { if (key !== which) continue; const p = paths[key]; if (!p) continue; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); p.forEach(([i, j], k) => { const [x, y] = px(i, j); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); const [x, y] = px(...p[p.length - 1]); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }
   if (start) { const [x, y] = px(...start); ctx.strokeStyle = "#444"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.stroke(); }
   const [x, y] = px(il, ia); ctx.fillStyle = "#1ab07a"; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
   cv.onclick = e => { const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height; const j = Math.min(NA - 1, Math.max(0, Math.floor((x - m.l) / cw))), i = Math.min(NL - 1, Math.max(0, Math.floor((H - m.b - y) / ch))); start = [i, j]; paths = {lp: null, nn: null}; ia = j; il = i; $("a").value = j; $("l").value = i; render(); };
@@ -245,8 +261,11 @@ function overlay() {
   for (let n = 0; n < nC; n++) { g.c.push([cxy[2 * n] / 1000, cxy[2 * n + 1] / 1000, g0.l[n] === "1" ? 1 : 0]); g.f.push([fxy[2 * n] / 10, fxy[2 * n + 1] / 10]); }
   const P = (x, y) => [((x - X0) * s).toFixed(1), ((Hh - y) * s).toFixed(1)];
   let svg = "";
-  for (const [x0, y0, x1, y1] of g.s) { const [a0, b0] = P(x0, y0), [a1, b1] = P(x1, y1); svg += `<line x1="${a0}" y1="${b0}" x2="${a1}" y2="${b1}" stroke="#000" stroke-width="2"/>`; }
-  for (const [x, y, live] of g.c) { const [cx, cy] = P(x, y); svg += `<circle cx="${cx}" cy="${cy}" r="3.2" fill="${live ? '#14a014' : '#d23232'}"/>`; }
+  if ($("shownew").checked)                                   // the new wood: what the repair replaces
+    for (const ring of g0.r) svg += `<polygon points="${ring.map(([x, y]) => P(x, y).join(",")).join(" ")}" fill="#faf8f4" fill-opacity="0.78" stroke="none"/>`;
+  for (const [x0, y0, x1, y1] of g.s) { const [a0, b0] = P(x0, y0), [a1, b1] = P(x1, y1); svg += `<line x1="${a0}" y1="${b0}" x2="${a1}" y2="${b1}" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><line x1="${a0}" y1="${b0}" x2="${a1}" y2="${b1}" stroke="#1565e8" stroke-width="2.5" stroke-linecap="round"/>`; }
+  if ($("showc").checked)
+    for (const [x, y, live] of g.c) { const [cx, cy] = P(x, y); svg += `<circle cx="${cx}" cy="${cy}" r="3.2" fill="${live ? '#14a014' : '#d23232'}"/>`; }
   let sfx = 0, sfy = 0, mom = 0, fmax = 1e-9;
   g.f.forEach(([fx, fy]) => { fmax = Math.max(fmax, Math.hypot(fx, fy)); });
   if ($("showf").checked) {
@@ -256,15 +275,6 @@ function overlay() {
       sfx += fx; sfy += fy; mom += x * fy - y * fx;
       const [x0, y0] = P(x, y), [x1, y1] = P(x + k * fx, y + k * fy);
       svg += `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#e8701a" stroke-width="2" marker-end="url(#ah)"/>`; });
-    const M = F.lp[il][ia];
-    if (M > 1e-6) {                                           // the twist being balanced: a counter-clockwise arc on the new piece
-      const cx = Math.min(A[ia] + 1.3, D.length - 0.6), cy = D.height / 2, r = 0.45;
-      const arc = (t) => P(cx + r * Math.cos(t), cy + r * Math.sin(t));
-      const [ax, ay] = arc(-0.6 * Math.PI), [bx, by] = arc(0.6 * Math.PI);
-      svg += `<path d="M${ax},${ay} A${r * s},${r * s} 0 1 0 ${bx},${by}" fill="none" stroke="#333" stroke-width="2.5" marker-end="url(#ah2)"/>`
-          + `<defs><marker id="ah2" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#333"/></marker></defs>`
-          + `<text x="${P(cx, cy)[0]}" y="${P(cx, cy)[1] + 4}" font-size="11" text-anchor="middle" fill="#333">M</text>`;
-    }
   }
   $("ov").innerHTML = svg;
   $("chk").textContent = $("showf").checked ? `net force (${sfx.toFixed(1)}, ${sfy.toFixed(1)}); moment ${(-mom).toFixed(1)} = capacity` : "";
@@ -292,8 +302,8 @@ function render() {
   $("lpGa").textContent = fd(F.lp, il, ia, 0).toFixed(1); $("lpGl").textContent = fd(F.lp, il, ia, 1).toFixed(1);
   $("nnGa").textContent = F.g1[il][ia].toFixed(1); $("nnGl").textContent = F.g2[il][ia].toFixed(1);
   $("knobs").textContent = Object.entries(FD.knobs).map(([k, v]) => k + " " + v).join("  ");
-  $("img").src = "data:image/png;base64," + FD.png; overlay(); slice(); heat($("hmLP"), F.lp, "LP"); heat($("hmNN"), F.nn, "surrogate");
-  $("lamval").textContent = (+$("lam").value).toFixed(1);
+  $("img").src = "data:image/png;base64," + FD.png; overlay(); slice(); heat($("hmLP"), F.lp, "LP", "lp"); heat($("hmNN"), F.nn, "surrogate", "nn");
+  $("lamval").textContent = (+$("lam").value).toFixed(1); $("reqval").textContent = req().toFixed(2);
 }
 function walk(useNN) {   // gradient ascent on the objective, in grid units, with a fixed step
   const lam = +$("lam").value, pk = peak(F), rm = Rmax(F), path = [[il, ia]];
@@ -302,8 +312,9 @@ function walk(useNN) {   // gradient ascent on the objective, in grid units, wit
   for (let k = 0; k < 400; k++) {
     const I = Math.round(fi), J = Math.round(fj);
     let ga, gl;
-    if (useNN) { ga = F.g1[I][J] / pk - lam * fd(F.R, I, J, 0) / rm; gl = F.g2[I][J] / pk - lam * fd(F.R, I, J, 1) / rm; }
-    else { ga = fd(F.lp, I, J, 0) / pk - lam * fd(F.R, I, J, 0) / rm; gl = fd(F.lp, I, J, 1) / pk - lam * fd(F.R, I, J, 1) / rm; }
+    const cap = (useNN ? F.nn : F.lp)[I][J] / pk, w = dpen(cap);   // the penalty steepens the capacity slope below the required load
+    if (useNN) { ga = w * F.g1[I][J] / pk - lam * fd(F.R, I, J, 0) / rm; gl = w * F.g2[I][J] / pk - lam * fd(F.R, I, J, 1) / rm; }
+    else { ga = w * fd(F.lp, I, J, 0) / pk - lam * fd(F.R, I, J, 0) / rm; gl = w * fd(F.lp, I, J, 1) / pk - lam * fd(F.R, I, J, 1) / rm; }
     const ca = ga * da, cl = gl * dl, n = Math.hypot(ca, cl);      // gradient per grid cell
     if (n < 1e-4) break;
     const sc = step * Math.min(1, n / 0.02) / n;                    // shrink steps where the slope is tiny
@@ -329,19 +340,20 @@ $("walk").onclick = () => {
   $("jumps").style.display = "inline";
   const lpStalled = paths.lp.length - 1 < 3;
   if (!showNN) { $("verdict").textContent = lpStalled
-    ? `The walker stopped after ${paths.lp.length - 1} step(s). On a plateau every finite difference of capacity is zero, so the only slope it feels is "remove less wood"; it drifts toward the rot until the first cliff, where it stops. Its objective is ${oLP.toFixed(3)}; the best cell on the grid is ${best.toFixed(3)}.`
-    : `The walker took ${paths.lp.length - 1} steps to an objective of ${oLP.toFixed(3)}; the best cell on the grid is ${best.toFixed(3)}.`; render(); return; }
+    ? `Stopped after ${paths.lp.length - 1} step(s): on a plateau the only slope is "remove less wood", and the first cliff stops it. Objective ${oLP.toFixed(3)}; best on grid ${best.toFixed(3)}.`
+    : `${paths.lp.length - 1} steps to objective ${oLP.toFixed(3)}; best on grid ${best.toFixed(3)}.`; render(); return; }
   $("verdict").textContent = lpStalled
-    ? `The LP-slope walker stopped after ${paths.lp.length - 1} step(s): on a plateau every finite difference of capacity is zero, so the only slope it feels is "remove less wood", and the first cliff stops it. The surrogate-slope walker took ${paths.nn.length - 1} steps and reached an objective of ${oNN.toFixed(3)} (exact solver), against ${oLP.toFixed(3)}; the best cell on the grid is ${best.toFixed(3)}.`
-    : `LP-slope walker: ${paths.lp.length - 1} steps to objective ${oLP.toFixed(3)}. Surrogate-slope walker: ${paths.nn.length - 1} steps to ${oNN.toFixed(3)}. Best cell on the grid: ${best.toFixed(3)}. Both end points are scored by the exact solver.`;
+    ? `LP walker stopped after ${paths.lp.length - 1} step(s): on a plateau the only slope is "remove less wood", and the first cliff stops it. Surrogate walker: ${paths.nn.length - 1} steps to ${oNN.toFixed(3)} against ${oLP.toFixed(3)}; best on grid ${best.toFixed(3)}.`
+    : `LP walker: ${paths.lp.length - 1} steps to ${oLP.toFixed(3)}. Surrogate walker: ${paths.nn.length - 1} steps to ${oNN.toFixed(3)}. Best on grid: ${best.toFixed(3)}.`;
   render();
 };
 $("reset").onclick = () => { start = null; paths = {lp: null, nn: null}; $("jumps").style.display = "none"; ["wsLP", "wsNN", "weLP", "weNN", "woLP", "woNN", "wbest"].forEach(id => $(id).textContent = ""); $("verdict").textContent = ""; render(); };
 $("a").oninput = () => { ia = +$("a").value; render(); }; $("l").oninput = () => { il = +$("l").value; render(); };
-$("lam").oninput = render; $("show").onchange = render;
+$("lam").oninput = render; $("req").oninput = render; $("show").onchange = render;
 $("jumpLP").onclick = () => { if (!paths.lp) return; const e = paths.lp[paths.lp.length - 1]; il = e[0]; ia = e[1]; $("a").value = ia; $("l").value = il; render(); };
+$("jumpStart").onclick = () => { if (!start) return; il = start[0]; ia = start[1]; $("a").value = ia; $("l").value = il; render(); };
 $("jumpNN").onclick = () => { if (!paths.nn) return; const e = paths.nn[paths.nn.length - 1]; il = e[0]; ia = e[1]; $("a").value = ia; $("l").value = il; render(); };
-$("showf").onchange = render;
+$("showf").onchange = render; $("shownew").onchange = render; $("showc").onchange = render;
 $("shownn").onchange = () => { document.body.classList.toggle("nonn", !$("shownn").checked); $("reset").onclick(); };
 sel.onchange = () => { setFamily(fsel.value, +sel.value); render(); };
 fsel.onchange = () => { setFamily(fsel.value, +sel.value); render(); };
