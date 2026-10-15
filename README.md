@@ -123,6 +123,30 @@ python examples/proto2d/gallery.py                          # -> out/proto2d/gal
 python examples/proto2d/gallery.py --fields 36 --variations 4 --seed 1
 ```
 
+## Pressure-Bounded Contact Model (additive prototype)
+
+`src/repair/proto2d/pressure.py` is an alternative evaluator that touches
+nothing else: each contact sample's normal force is bounded by a bearing
+pressure times the sound length of its own piece of interface, with no global
+cap and no live/dead flag. Capacity becomes continuous in the geometry and
+independent of the sample count; what remains non-smooth is kinks at
+active-set changes. The comparison page sweeps both models on held-out fields
+and runs a zoom test on each sweep's largest step to tell a true jump (cap
+model) from a steep slope (pressure model).
+
+```bash
+python examples/proto2d/compare_contact_models.py          # -> out/proto2d/contact_models.html
+```
+
+`examples/proto2d/topology_demo.py` sweeps three kinds of contact-topology
+change on the tenon and scarf in sound wood (a face shrinking to nothing, a
+finite face vanishing at the block's edge, cheeks separating by a clearance)
+under both models plus a compliant variant, with the zoom test on each.
+
+```bash
+python examples/proto2d/topology_demo.py                   # -> out/proto2d/topology_demo.html
+```
+
 ## Generate the 2D Dataset
 
 Fields times interfaces: each random damage field gets, for every family, a
